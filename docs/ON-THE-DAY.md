@@ -23,7 +23,7 @@ itself is a short deck; the spec is the substance behind it.
 
 | | |
 |---|---|
-| **Deadline** | **Monday 15 September, end of day IST** |
+| **Deadline** | **Tuesday, 15 September, 6:00 pm IST** |
 | **How to submit** | ⚠️ *a Google Form the organising team will circulate — link here once it exists* |
 | **What to send** | ⚠️ *deck format and slide limit* |
 | **Name the file** | `TeamName_CollegeCode.pdf` — one file, so twenty-five submissions do not all arrive called `spec.pdf` |
@@ -83,7 +83,7 @@ already tell teams. Replace with the final rubric.*
 
 | | roughly |
 |---|---|
-| A working agentic slice — state, tools, decomposition, a human in the loop, a back-edge | ⚠️ |
+| A working agentic slice — state, tools, decomposition, a human in the loop, a step that sends work backwards | ⚠️ |
 | Evidence — three walkthroughs with real people, one recorded break-and-fix, and a change you made because of what you saw | ⚠️ *about a third* |
 | Problem definition and design rationale — why it is shaped this way, and where its limits are | ⚠️ |
 | Handoff — a repo another team could pick up | ⚠️ |

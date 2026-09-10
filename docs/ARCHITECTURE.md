@@ -11,6 +11,20 @@ The references below are `file:line · symbol`. They are checked by
 the suite fails and tells you the new line. Documentation that cannot go stale
 silently is the only kind worth trusting.
 
+### The same ideas, in two vocabularies
+
+`docs/SPEC-TEMPLATE.md` uses plain words because the teams filling it in have not
+read any of this. The code uses the shorter names. They are the same things.
+
+| in the spec template | here, and in the code |
+|---|---|
+| a step that sends work backwards | a back-edge |
+| waiting | `suspended` — `RunState.is_suspended` |
+| finished | terminal |
+| a step | a handler |
+| spend limit | the budget — tokens, attempts, time |
+| revision limit | counted from the record history |
+
 ---
 
 ## How to use this page
@@ -107,7 +121,7 @@ boundary with no conversion is not a contract, it is a hope.
 
 ### 3. Bounded loops
 
-> **Tell your assistant:** *the count limit goes in the schema, not the prompt. And keep my domain limits separate from the spend fence — count revisions from the record history, not from `budget.attempt`.*
+> **Tell your assistant:** *the count limit goes in the schema, not the prompt. And keep my revision limit separate from the spend limit — count revisions from the record history, not from `budget.attempt`.*
 
 The characteristic failure of an agent is not a crash — it is an expensive
 infinite loop. Every loop stops on something real.
@@ -120,9 +134,9 @@ infinite loop. Every loop stops on something real.
 | `slice/budget.py:82` · `Budget.reset_attempts` | Cleared on genuine success, so a later retry starts fresh |
 | `slice/runner.py:51` · `advance` | `max_steps` — a fence on the state machine itself |
 
-**Two bounds, and they must not share a counter.** A *cost fence* bounds spend —
+**Two bounds, and they must not share a counter.** A *spend limit* bounds cost —
 tokens, attempts, dollars — and that is the whole job of `slice/budget.py`. A
-*domain limit* bounds iterations: "three revisions and stop" is a rule about your
+*revision limit* bounds iterations: "three revisions and stop" is a rule about your
 problem, not about your wallet. Derive it from the record history — how many
 verdicts are in `history("verdict")` — never from `budget.attempt`, which is also
 counting parse failures and repair passes. Share one counter and a run that hit
@@ -139,7 +153,7 @@ class Assumptions(BaseModel):
 
 A violation now fails at `_parse`, where the repair pass gets a specific error to
 work from. And note what this rules out: a bare `list[Assumption]` is not a valid
-`schema=` for a structured-output call. It is not a model, so there is no JSON
+`schema=` when you need the model to return a fixed shape. It is not a model, so there is no JSON
 schema to generate and nothing for the repair pass to repair against. The wrapper
 is not ceremony — it is the only place the bound can live.
 
@@ -426,5 +440,5 @@ test of the property tests the property.
 
 *Companion documents: [`PRINCIPLES-BRIEF.md`](PRINCIPLES-BRIEF.md) for the short
 version of all of this, [`BUILDER.md`](BUILDER.md) for the order to do it in, and
-[`../demo/SPEC.md`](../demo/SPEC.md) for one domain built on top of it — including
-the parts three independent reviews said were wrong.*
+[`../demo/SPEC-SAMPLE.md`](../demo/SPEC-SAMPLE.md) for a worked spec written
+against this shape.*

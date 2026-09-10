@@ -1,9 +1,14 @@
 # demo/smoke — the smallest thing that proves the kit works
 
 **A spec at its minimum size.** Sixteen sections, two to five lines each. Written
-to the same template as [`docs/SPEC-TEMPLATE.md`](../docs/SPEC-TEMPLATE.md) and
-[`SPEC.md`](SPEC.md), to show that the template scales down — a two-page spec is
-a real spec, and this one is buildable in about ninety minutes.
+to the same template as [`docs/SPEC-TEMPLATE.md`](../../docs/SPEC-TEMPLATE.md) and
+[`demo/SPEC-SAMPLE.md`](../SPEC-SAMPLE.md), to show that the template scales down
+— a two-page spec is a real spec, and this one is buildable in about ninety
+minutes.
+
+*This slice is cut from a larger venture-thesis spec that is not in this repo.
+Where the text below refers to "the full spec", that is what it means; nothing
+here depends on having read it.*
 
 **It is also a genuine agent**, by the only test that matters: it can send work
 backwards. And it runs against `slice/` **exactly as shipped** — no spine edits,
@@ -137,7 +142,7 @@ simultaneously:
 | blocks, then recovers | `--stub`, deterministically, and by `tests/test_smoke.py` |
 | blocks until the bound stops it | `--case hopeless`, live |
 
-There is a deeper reason, and it is in [`SPEC.md`](SPEC.md). **In the real system
+There is a deeper reason, and it is in the full spec. **In the real system
 the founder revises, not SPOT.** A person reads the objections and rewrites their
 own paragraph — a loop no model can short-circuit, because the missing
 information is genuinely outside the system. SPOT-revises was always a smoke-test
@@ -157,7 +162,7 @@ paragraph goes back to SPOT along with the objections, and SPOT re-reads it —
 looking for detail the first pass flattened. That is honest as far as it goes:
 extraction improving under critique, with nothing invented.
 
-But it is not the loop in [`SPEC.md`](SPEC.md), where **the founder** reads the
+But it is not the loop in the full spec, where **the founder** reads the
 objections and rewrites their own paragraph. That version cannot be simulated,
 because the new information comes from outside the system. A person who is told
 *"you named a category, not a person"* goes away and thinks about who they
@@ -266,7 +271,7 @@ thousand tokens across two rounds that discovered nothing after the first.
 The distinction matters because the remedies differ. One says *this thesis is not
 good enough yet*. The other says *the answer is not in your paragraph — go and
 find out*, and names the fields to go and answer. It is the
-unresolved-versus-contradicted distinction from [`SPEC.md`](SPEC.md) §8.5, in
+unresolved-versus-contradicted distinction from the full spec, in
 miniature: a record that admits an absence is not wrong, it is incomplete.
 
 Three block conditions, and they are the whole domain judgement in this slice:
@@ -350,7 +355,7 @@ run  smoke-4f2a   idea: "AI can help students find better internships..."
 
 ## 14. How this grows
 
-Straight into [`SPEC.md`](SPEC.md). This slice is §8.1 and §8.2 of that document,
+Straight into the full spec. This slice is two steps of that document,
 unchanged — the same two handlers, the same three records, the same three block
 conditions. Everything after it (assumptions, evidence with verified provenance,
 the human callback, the decision, recheck) is added in front of `COMPLETE`
@@ -369,7 +374,7 @@ without rewriting any of this.
    value back. The test now strips the value and checks what is left — but only
    a person reading the output can judge whether an objection is *useful*.
 
-4. **Whether SPOT should be revising at all.** In `SPEC.md` the founder revises;
+4. **Whether SPOT should be revising at all.** In the full spec the founder revises;
    here SPOT does, because a smoke test wants a self-contained loop. It is a
    convenience, and every live run so far has pushed on exactly that seam.
 

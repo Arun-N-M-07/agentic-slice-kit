@@ -19,7 +19,8 @@ nothing in it is a deliverable in itself.
 
 It is the fastest route to one, though. The college screens a preliminary
 submission and shortlists before the event, and what comes out of these sessions
-— a specific moment, a state machine with a back-edge, three refusals, and an
+— a specific moment, a state machine with a step that sends work backwards,
+three refusals, and an
 honest list of what you are unsure about — is the substance that submission
 needs.
 
@@ -80,8 +81,8 @@ write them in an hour once these five are settled.
 **Section 4 is the one to do on your own, and the one worth doing.** Write a
 whole run by hand — the actual records at each step, with real values — before
 anyone writes code. It is your acceptance criteria, your demo script and your
-prompt target in one pass. [`demo/SPEC.md`](../demo/SPEC.md) §4 shows what one
-looks like.
+prompt target in one pass. [`demo/SPEC-SAMPLE.md`](../demo/SPEC-SAMPLE.md) §4
+shows what one looks like.
 
 ---
 
@@ -135,11 +136,11 @@ them.
 > technique, not a forbidden one; it just costs more to trace and bound than a
 > two-day build can usually afford.
 >
-> Then make me classify every state. **Active** — a handler moves it on.
-> **Suspended** — waiting on the outside world, a human answer or new evidence,
-> and resumable by a later invocation. **Terminal** — nothing advances it, ever.
-> Challenge anything I call terminal that I later want to resume: "not yet" is
-> almost always suspended.
+> Then make me classify every state. **Active** — a step picks it up and moves
+> it forward. **Waiting** — paused on something outside the system, a person's
+> answer or new evidence, and a later run can pick it up where it left off.
+> **Finished** — nothing moves it again, ever. Challenge anything I call
+> finished that I later want to resume: "not yet" is almost always waiting.
 >
 > Then test me on three things, and be strict:
 >
@@ -148,10 +149,9 @@ them.
 >    what drawing them is for. What a run decides is which of them it takes.
 > 2. **What bounds my spend** — attempts, tokens, time?
 > 3. **What bounds my iterations** — "three revisions and stop"? Those are two
->    different bounds and they must not share a counter: a domain limit is
+>    different bounds and they must not share a counter: the revision limit is
 >    counted from the record history, not from the budget. If they share one, a
->    cost policy quietly changes a teaching policy, and I find out during the
->    demo.
+>    retried call quietly eats a revision, and I find out during the demo.
 
 **You are done when** you can name the step that rejects another step's output,
 which states can be resumed and which are genuinely dead, and both bounds.
@@ -240,7 +240,7 @@ them, ask them yourself and refuse to move on until you have a real answer.
 |---|---|
 | *If I merged two of these into one, what would I lose?* | Agents invented for the sake of it |
 | *Which step can send work backwards?* | No loop, therefore no agent |
-| *Which states are suspended, and which are actually dead?* | A "not yet" you cannot resume |
+| *Which states are waiting, and which are actually dead?* | A "not yet" you cannot resume |
 | *What bounds spend, and separately, what bounds iterations?* | One counter doing two jobs |
 | *For each step — is the agent doing the user's thinking?* | A document generator |
 | *What claim will this make that a reader cannot check?* | Confident invention |
@@ -282,19 +282,19 @@ tell it directly: **stop agreeing with me.**
 You have a few pages. It is wrong in places, and the last two sections say
 where. That is exactly right.
 
-**Read the sample against it.** [`demo/SPEC.md`](../demo/SPEC.md) is the same
-sixteen sections filled in for one real agent. It is longer than yours needs to
-be — it is a reference implementation — but section for section it shows what
-"enough detail" looks like, and each of its sections says what that section is
-*for*. Reading yours beside it will show you which of your sections is thin.
+**Read the sample against it.** [`demo/SPEC-SAMPLE.md`](../demo/SPEC-SAMPLE.md)
+is the same sixteen sections, filled in by a team for an agent they could build
+in two days. Section for section it shows what "enough detail" looks like.
+Reading yours beside it will show you which of your sections is thin.
 
-**Send it in by Monday 15 September, end of day.** The organising team will
+**Send it in by Tuesday, 15 September, 6:00 pm IST.** The organising team will
 circulate a submission form; name your file `TeamName_CollegeCode`. Everything
 else about the day — keys, judging weights, who to ask — is on
 [`ON-THE-DAY.md`](ON-THE-DAY.md).
 
 Upload early rather than perfectly; you can replace it. What is being screened is
-whether you have a specific problem, a state model with a back-edge, and an honest
+whether you have a specific problem, a state model that can send work backwards,
+and an honest
 list of what you are unsure about. Put every team member's name on it — individual
 contribution is what the Foundry selection looks at, and it cannot be seen if it
 was never written down.

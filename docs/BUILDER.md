@@ -120,7 +120,7 @@ a judge re-running your demo has to get the behaviour you demonstrated.
 |---|---|---|
 | `SLICE_MAX_TOKENS` | 1200 | output ceiling per request. Too low and a verbose model gets cut off mid-JSON — you will see a `Truncated` error, which is the kit telling you the parameter is wrong rather than your prompt |
 | `SLICE_MAX_TOKENS_PER_RUN` | 250000 | the run-level fence. The thing that stops a loop costing real money |
-| `SLICE_MAX_ATTEMPTS_PER_STEP` | 3 | retries per step. **A cost fence, not a domain rule** — see below |
+| `SLICE_MAX_ATTEMPTS_PER_STEP` | 3 | retries per step. **A spend limit, not a revision rule** — see below |
 | `SLICE_EXPERT_TIMEOUT_MINUTES` | 45 | how long a run waits on a human before continuing without them |
 
 **Tracing is optional and off.** `LANGFUSE_*` is blank by default and the tracer
@@ -196,9 +196,8 @@ spine is predictable.
 | `search` | `slice/retrieve.py` | what comes back from the documents, and what a citation actually is |
 
 **Then write `demo/flow.py`.** Your handlers, your transitions, your rules. That
-is where a domain lives and the spine does not change. `demo/SPEC.md` is a worked
-example of one — including the parts that turned out to be wrong when three
-reviewers went at it, which is the more useful half.
+is where a domain lives and the spine does not change. `demo/SPEC-SAMPLE.md` is a
+worked spec for one, scoped to what a team can finish in two days.
 
 [`ARCHITECTURE.md`](ARCHITECTURE.md) is the reference for everything else. It is
 not a tutorial and you should not read it cover to cover — go there when
@@ -243,7 +242,7 @@ are already written down for this item — and never from the attempt counter th
 kit uses to stop runaway spending. That counter is also ticking for retries
 after a garbled response. Point your rule at it and a run that hit two bad
 responses silently gets one review instead of three, which you find out on
-stage. A spending fence and a domain limit are both "a small number you stop
+stage. A spend limit and a revision limit are both "a small number you stop
 at", and they must never be the same number.
 
 Those decisions are made in **code**, not by a model. The model supplies

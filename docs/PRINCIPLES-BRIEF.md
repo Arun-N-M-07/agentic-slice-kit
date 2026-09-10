@@ -24,7 +24,8 @@ at another's output and send it back for revision, the route through the system
 depends on what the run found, not only on what you wrote.
 
 What you are building is bounded stateful orchestration: transitions you fixed in
-advance, model-driven decisions *inside* them, at least one back-edge, and state
+advance, model-driven decisions *inside* them, at least one step that sends work
+backwards, and state
 that survives the process exiting. You should be able to draw the transitions —
 that is the point of drawing them. Which ones a given run takes, and how often,
 is what the run decides.
@@ -40,9 +41,9 @@ and the second morning on state rewrites everything.
 **Tier 1 — the skeleton.** Durable state outside the conversation. Typed records
 at every boundary — between steps, out of the model, in from the corpus, and in
 from the human, whose prose is classified into a record before it is allowed to
-affect anything. Bounded loops of two kinds that must not share a counter: cost
-fences on tokens and attempts, and domain limits — *three revisions and stop* —
-counted from the record history. The loop bound goes in the schema, where it
+affect anything. Bounded loops of two kinds that must not share a
+counter: a spend limit on tokens and attempts, and a revision limit — *three
+revisions and stop* — counted from the record history. The loop bound goes in the schema, where it
 fails; in the prompt it is only a suggestion.
 
 **Tier 2 — makes it demonstrable.** Every claim cites a source a reader can
@@ -56,7 +57,7 @@ model — the right default over two days because it keeps cost and behaviour
 reviewable, not because a planner that logs its choices is illegitimate.
 Automated assertions, and at least one adversarial: the corpus is untrusted
 input, and retrieved text is data, never instructions. Never `assert` on model
-output in a handler — record the finding instead. A defined failure behaviour for
+output inside a step — record the finding instead. A defined failure behaviour for
 every external dependency.
 
 ## Who is doing the thinking

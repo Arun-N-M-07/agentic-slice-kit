@@ -3,11 +3,11 @@
 **19 and 20 September.** Two days, 9:00 AM to 6:00 PM on site each day. The
 evening in between is yours — carry on remotely if your team wants to.
 
-**If you missed Info Session 1** — Dr. Viji Krishnamurthy (VP of AI, Oracle Industries) on the AI economy, and Raj Simhan (CEG '96) on what separates an agent from everything else being called one — the recording is worth an hour. *\[check with your college organizing team for recording link\]*. This document assumes none of it, so you lose nothing by reading on.
+**If you missed Info Session 1** — Dr. Viji Krishnamurthy (VP of AI, Oracle Industries) on the AI economy, and Raj Simhan (CEG '96) on what separates an agent from everything else being called one — the recording is worth an hour. *\[check with your college organizing team for recording link\]*. For a quicker read, the illustration at `docs/One Dinner Four Kitchens.pdf` covers the same ground. This document assumes none of it, so you lose nothing by reading on.
 
 > One thing is worth doing this week rather than next: the **GitHub Student Developer Pack** application, because approvals have taken up to a fortnight and nothing else here has a queue in front of it. Details at the end.
 
-> **The preliminary 'Agent Specs' submission is due Tueday, 15 September, end of day.** The organising team will circulate a submission form nearer the date; Everything else operational — keys, judging weights, who to ask on the day — lands in `docs/ON-THE-DAY.md` in the repo next week.
+> **The preliminary 'AgentSpec' submission is due Tuesday, 15 September, 6:00 pm IST.** The organising team will circulate a submission form nearer the date; Everything else operational — keys, judging weights, who to ask on the day — lands in `docs/ON-THE-DAY.md` in the repo next week.
 
 ---
 
@@ -116,12 +116,12 @@ argues about what is feasible, and the person who will watch strangers use it ha
 the sharpest instinct for where it will confuse them.
 
 What comes out is a filled-in spec: a specific moment worth fixing, a state
-machine with a back-edge, three things your agent refuses to do, and an honest
+machine with a step that sends work backwards, three things your agent refuses to do, and an honest
 list of what you are unsure about. That is the substance a preliminary
 submission has to be able to say. The deck is the easy part once you have it.
 
-There is a worked example in the repo — `demo/SPEC.md` is the same template
-filled in for a real agent, section for section, so you can see how much detail
+There is a worked example in the repo — `demo/SPEC-SAMPLE.md` is the same
+template filled in by a team, section for section, so you can see how much detail
 is actually useful.
 
 ### Then, once you have a spec
