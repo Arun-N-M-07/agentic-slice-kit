@@ -100,16 +100,54 @@ exactly the situation recorded model responses exist for.
 
 | | weight |
 |---|---|
-| **A working agentic slice** — state, tools, decomposition, a human in the loop, and a step that sends work backwards | **35** |
-| **Evidence** — three walkthroughs with real people, one recorded break-and-fix, and a change you made because of what you saw | **35** |
-| **Problem definition and design rationale** — why it is shaped this way, and where its limits are | **20** |
-| **Handoff** — a repo another team could pick up | **10** |
+| **A working agentic slice** — it runs, and one step judges another step's work and sends it back | **35** |
+| **Evidence that real people used it** — walkthroughs with people outside your team, and what you changed because of what you watched | **35** |
+| **Whether it helped** — what that person could do afterwards that they could not before; and what you did when one of your own assumptions turned out to be wrong | **20** |
+| **How you worked, and how you show it** — the commit rhythm, covering the ground in the demo, and how you handle questions | **10** |
 
 **Evidence carries the same weight as the build.** That is not a rounding
 decision — it is the whole point. It cannot be produced on the last afternoon,
 and it is the part most teams discover too late. If you have not put your agent
 in front of a stranger by Saturday evening, you are already behind on a third of
 the score.
+
+**And finding out that it did not help still counts.** A team that tested
+properly, learned their idea does not work the way they thought, and changed the
+design because of it scores as well as a team whose first guess was right. What
+scores badly is never having looked hard enough to find out.
+
+---
+
+## The demo
+
+Format and timings are settled on the day. Whatever they are, the demo has to
+carry four things.
+
+**The problem.** Who it is for, and what went wrong for them. This is context
+rather than a scored item of its own, but nothing after it makes sense without it.
+
+**One live run, end to end** — and it must show **the step that sends work
+backwards**. If the loop is not visible in the run, it cannot be scored. This is
+the single most common way a good build loses marks.
+
+**What happened when real people used it.** Names. What they did, what broke,
+what you changed, and whether they were better off afterwards.
+
+**Questions.** Expect to be asked to *show it failing*. Thirty seconds, no
+warning. A team that can make their own system break, and explain why, is telling
+the judges something a rehearsed demo cannot.
+
+Three rules:
+
+- **It runs from your frozen commit.** The final commit closes before demos start,
+  and the coordinator checks `git log`. Code that is not in the repo did not happen.
+- **One slide maximum.** Slides are where a thin build hides.
+- **It runs live, or you show a recording you made before the freeze and say so.**
+  No mock screens.
+
+**A break is not a failure.** A system that crashes and a team who can say exactly
+why beats a system that only ever runs on one rehearsed input. What costs you is
+not knowing what went wrong.
 
 ---
 
