@@ -398,3 +398,45 @@ def test_a_short_answer_that_does_not_match_never_tells_the_student_they_are_wro
     html = _answer_on_page(client, "one joule per second")
     assert "does not match the notes" in html and "Not quite" not in html
     assert "If you meant the same thing, you have it." in html
+
+
+def test_the_ask_form_tells_the_tester_the_wait_is_normal(client, token):
+    """A live answer took 10 to 30 seconds and the page has no spinner (no JavaScript). Measured, not
+    guessed: without this note a tester would think the page had frozen and press Ask again."""
+    _login(client, token)
+    html = _page(client)
+    assert 'id="wait"' in html and "up to half a minute" in html and "do not press Ask again" in html
+
+
+# ------------------------------------------------------------- notes page
+
+def _sign_in(client, token):
+    r = client.post("/login", data={"token": token}, follow_redirects=False)
+    assert r.status_code == 303
+
+
+def test_the_notes_page_needs_sign_in_and_lists_only_this_accounts_notes(svc, client):
+    assert client.get("/sources", follow_redirects=False).status_code == 303
+    assert client.post("/sources", data={"name": "x", "text": "y"}, follow_redirects=False).status_code == 303
+    from demo.notes import sources as SRC
+    db = svc._open().db
+    other = S.create_account(db, "other")
+    SRC.create_source(db, other, "OtherPrivateNotes", "o.md", "text")
+    _sign_in(client, _token(svc))
+    page = client.get("/sources")
+    assert page.status_code == 200 and "Your notes" in page.text and "OtherPrivateNotes" not in page.text
+
+
+def test_offline_the_page_offers_no_upload_and_the_post_is_refused_without_storing(svc, client):
+    _sign_in(client, _token(svc))
+    assert "Uploads need the live mode" in client.get("/sources").text
+    r = client.post("/sources", data={"name": "n", "text": "some text"}, follow_redirects=False)
+    assert r.status_code == 400 and "live mode" in r.text
+    assert svc._open().db.execute("SELECT COUNT(*) FROM sources").fetchone()[0] == 0
+
+
+def test_a_cross_site_upload_or_delete_is_refused(svc, client):
+    _sign_in(client, _token(svc))
+    for path in ("/sources", "/sources/delete"):
+        r = client.post(path, data={"name": "n", "text": "t"}, headers={"origin": "http://evil.example"})
+        assert r.status_code == 400 and "refused" in r.text

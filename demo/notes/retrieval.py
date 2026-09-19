@@ -67,14 +67,22 @@ def fuse(*rankings: list[str], k: int = RRF_K) -> list[str]:
     return sorted(scores, key=lambda i: (-scores[i], first_seen[i]))
 
 
-def hybrid_search(store, query: str, k: int = 3):
-    """The k best passages for a query, by embedding rank fused with keyword rank."""
+def hybrid_search(store, query: str, k: int = 3, allowed: set[str] | None = None):
+    """The k best passages for a query, by embedding rank fused with keyword rank.
+
+    `allowed` is the set of passage ids the asker may see (None means no restriction, for the built-in
+    demonstration). It is applied BEFORE any ranking, so a passage the asker may not see cannot even
+    influence the order of one they may. An empty set returns nothing."""
     from slice.retrieve import corpus_size, search
 
     total = corpus_size(store)
     if total == 0:
         return []
-    by_vector = search(store, query, k=total)                 # the whole corpus, ranked
+    by_vector = search(store, query, k=total)                 # the whole index, ranked
+    if allowed is not None:
+        by_vector = [c for c in by_vector if c.chunk_id in allowed]
+    if not by_vector:
+        return []
     chunks = {c.chunk_id: c for c in by_vector}
     fused = fuse([c.chunk_id for c in by_vector],
                  keyword_rank(query, {cid: c.text for cid, c in chunks.items()}))

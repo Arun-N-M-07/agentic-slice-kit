@@ -20,6 +20,7 @@ from slice.records import RunState
 from slice.store import Store
 
 from . import canned, sessions as S
+from . import sources as SRC
 from . import tutor as tutor_mod
 from .flow import build_flow
 from .questions import QUESTIONS
@@ -62,6 +63,7 @@ class LiveProvider:
     def prepare(self, store: Store) -> None:
         from .corpus import ingest_notes
         ingest_notes(store)
+        SRC.register_builtin(store.db)
 
     def for_question(self, text: str):
         from slice.llm import complete
@@ -90,7 +92,8 @@ class ScriptedProvider:
 
 class NotesService:
     def __init__(self, db_path: str, provider, *, tutor: bool = True,
-                 max_requests_per_hour: int = MAX_REQUESTS_PER_HOUR) -> None:
+                 max_requests_per_hour: int = MAX_REQUESTS_PER_HOUR, tracer=None) -> None:
+        self.tracer = tracer
         self.db_path, self.provider, self.tutor = str(db_path), provider, tutor
         self.max_requests_per_hour = max_requests_per_hour
         store = Store(self.db_path)
@@ -125,6 +128,34 @@ class NotesService:
     def cancel(self, account_id: str, session_id: str) -> bool:
         return S.request_cancel(self._open().db, account_id, session_id)
 
+    # -- sources (live mode only: uploads need the worker and the real embeddings) -----
+
+    def _require_live(self) -> None:
+        if self.provider.mode != "live":
+            raise ServiceError("uploads_unavailable", "Uploads need the live mode.")
+
+    def upload_source(self, account_id: str, name: str, filename: str, text: str,
+                      upload_key: str | None = None) -> dict[str, Any]:
+        self._require_live()
+        try:
+            return SRC.create_source(self._open().db, account_id, name, filename, text, upload_key=upload_key)
+        except SRC.SourceError as e:
+            raise ServiceError(e.code, str(e)) from e
+
+    def list_sources(self, account_id: str) -> list[dict[str, Any]]:
+        return SRC.list_sources(self._open().db, account_id)
+
+    def delete_source(self, account_id: str, source_id: str) -> None:
+        self._require_live()
+        SRC.delete_source(self._open().db, account_id, source_id)
+
+    def make_worker(self):
+        """The worker that ingests and purges sources. It opens its own connections."""
+        from . import jobs as J
+        handlers = {SRC.INGEST_JOB: SRC.make_ingest_handler(self._open),
+                    SRC.PURGE_JOB: SRC.make_purge_handler(self._open)}
+        return J.Worker(lambda: self._open().db, handlers, worker_id="serve-worker")
+
     # -- asking -----------------------------------------------------------
 
     def ask(self, account_id: str, session_id: str, request_id: str, question: str,
@@ -143,7 +174,19 @@ class NotesService:
 
         result, view, replayed = S.handle_request(
             db, account_id, session_id, request_id, S.fingerprint("ask", question), expected_version, work)
+        if self.tracer is not None and not replayed:
+            self._trace(view)
         return result, self._snapshot(view), replayed
+
+    def _trace(self, view: S.SessionView) -> None:
+        """Queue this turn's runs for export. Queuing cannot fail a request."""
+        try:
+            self.tracer.submit(view.state["last_run"])
+            pending = view.state.get("pending_check")
+            if pending:
+                self.tracer.submit(pending["run_id"])
+        except Exception:                                # noqa: BLE001
+            pass
 
     def _check_rate(self, db, session: S.SessionView) -> None:
         account = db.execute("SELECT account_id FROM sessions WHERE session_id=?", (session.session_id,)).fetchone()[0]
@@ -165,6 +208,18 @@ class NotesService:
                                      "should_stop": stop}
         if parts["search"] is not None:
             flow_args["search"] = parts["search"]
+        elif self.provider.mode == "live":
+            # Pin the sources this session sees the first time it asks, then search only those
+            # passages. A newer upload never changes a running session; a deleted source vanishes.
+            account = db.execute("SELECT account_id FROM sessions WHERE session_id=?",
+                                 (session.session_id,)).fetchone()[0]
+            pinned = session.state.get("source_versions")
+            if pinned is None:
+                pinned = SRC.active_version_ids(db, account)
+            allowed = SRC.allowed_chunk_ids(db, account, pinned)
+            session.state["source_versions"] = pinned
+            from .corpus import search_notes
+            flow_args["search"] = lambda st, q, k: search_notes(st, q, k=k, allowed=allowed)
         final = runner.advance(store, run_id, build_flow(**flow_args), self.provider.settings)
 
         state = dict(session.state)

@@ -35,11 +35,11 @@ def ingest_notes(store) -> dict:
     return ingest(store, NOTES_DIR)
 
 
-def search_notes(store, query: str, k: int = 3):
+def search_notes(store, query: str, k: int = 3, allowed: set[str] | None = None):
     """The k best passages for the query, each with the file and position it came from.
     Provenance is the point: a citation is a chunk that was really returned.
 
     Hybrid, not embeddings alone: the kit's small embedding model ranked the right note
     fifth of five for one of our questions (see demo/notes/retrieval.py)."""
     from .retrieval import hybrid_search
-    return hybrid_search(store, query, k=k)
+    return hybrid_search(store, query, k=k, allowed=allowed)

@@ -41,7 +41,8 @@ def _ok(new_state=None, result=None):
 def test_migrations_apply_once_and_are_recorded(tmp_path):
     connection = Store(str(tmp_path / "m.db")).db
     first = S.migrate(connection)
-    assert first == ["0001_accounts_credentials_sessions", "0002_session_requests"]
+    assert first == [name for name, _ in S.MIGRATIONS] and first[:2] == [
+        "0001_accounts_credentials_sessions", "0002_session_requests"]
     assert S.migrate(connection) == []
     rows = connection.execute("SELECT name FROM schema_migrations ORDER BY name").fetchall()
     assert [r[0] for r in rows] == first

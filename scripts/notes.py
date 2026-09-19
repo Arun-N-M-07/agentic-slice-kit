@@ -143,7 +143,10 @@ def cmd_serve(args) -> int:
     db_path = Path(args.db)
     db_path.parent.mkdir(parents=True, exist_ok=True)
     try:
-        service = NotesService(str(db_path), provider, max_requests_per_hour=args.max_requests_per_hour)
+        from demo.notes import tracing
+        tracer = tracing.from_env(lambda run_id: tracing.run_to_trace(Store(str(db_path)), run_id))
+        service = NotesService(str(db_path), provider, max_requests_per_hour=args.max_requests_per_hour,
+                               tracer=tracer)
     except ImportError as e:            # the embedding search lives in the kit's environment
         print(f"cannot run live: retrieval needs the kit's environment ({e}).", file=sys.stderr)
         return 2
@@ -156,7 +159,17 @@ def cmd_serve(args) -> int:
     if args.host not in ("127.0.0.1", "localhost"):
         print("WARNING: this is reachable from other machines. Use https (a tunnel) so access codes and "
               "cookies are not sent in the clear, and give codes only to real testers.")
+    import threading
     import uvicorn
+    stop = threading.Event()
+    print("Tracing to Arize AX: " + ("ON" if service.tracer else "off (set ARIZE_SPACE_ID and ARIZE_API_KEY)"))
+    if service.tracer:
+        threading.Thread(target=service.tracer.run_forever, args=(stop,), daemon=True).start()
+    print("Tracing to Arize AX: " + ("ON" if service.tracer else "off (set ARIZE_SPACE_ID and ARIZE_API_KEY)"))
+    if service.tracer:
+        threading.Thread(target=service.tracer.run_forever, args=(stop,), daemon=True).start()
+    if args.live:                       # uploads exist only live; the worker ingests and purges them
+        threading.Thread(target=service.make_worker().run_forever, args=(stop,), daemon=True).start()
     uvicorn.run(create_app(service), host=args.host, port=args.port, log_level="warning")
     return 0
 

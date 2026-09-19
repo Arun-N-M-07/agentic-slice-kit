@@ -102,6 +102,15 @@ MIGRATIONS: list[tuple[str, str]] = [
 ]
 
 
+from .jobs import JOBS_MIGRATION  # noqa: E402  (the queue's table lives with the queue)
+
+MIGRATIONS.append(JOBS_MIGRATION)
+
+from .sources import SOURCES_MIGRATION  # noqa: E402
+
+MIGRATIONS.append(SOURCES_MIGRATION)
+
+
 def _checksum(sql: str) -> str:
     return hashlib.sha256(sql.encode("utf-8")).hexdigest()
 

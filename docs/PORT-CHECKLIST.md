@@ -54,20 +54,23 @@ their feature.
   calls (a call already in flight cannot be interrupted, and its result is discarded). **Not ported:**
   the WebSocket protocol, reconnect, audio and STOP fencing. The page has no STOP button (no JavaScript).
   **Not tested with NVDA or any assistive technology**; that needs a person.
+  Live trial through the page (real models, 3 questions, about half a cent): a new question answered
+  correctly, its check question graded, an honest gap, and an injected instruction ignored. Observed
+  latency 10.7 s and 29.3 s for the notes answer: three samples, not a benchmark.
 - [x] Persistence and migrations (`sessions.py::migrate`): SQLite with forward-only, checksummed
   migrations (an applied migration that was edited is refused). **Not ported:** PostgreSQL, Alembic,
   the transactional outbox.
 
 ## Push 6: Pipeline (`content` 3,484, `multimedia` 6,837, `worker` 3,088 lines)
 
-- [ ] Worker: leases, retries, outbox (`worker/jobs`, `worker/runtime`)
-- [ ] Ingestion: parsing, chunking, embedding (`content`)
-- [ ] Multimedia: figures, tables, equations, video (`multimedia`)
+- [x] Worker: leases, retries, backoff with jitter, fenced writes, checkpoints, dead-letter, cancel (`demo/notes/jobs.py`). Started inside `serve --live`. Not done: outbox.
+- [x] Ingestion: versioned uploads, staged job, pinned sessions, deletion and purge, access-scoped search (`demo/notes/sources.py`). Text and Markdown only: no PDF. A `/sources` page (paste text, list, delete) exists; the live upload-to-answer path has not been run in a browser. Deleting does not rewrite old run history.
+- [~] Multimedia: only tables and equations, read aloud as text (`demo/notes/describe.py`). Not done: figures, diagrams, video.
 
 ## Push 7: Tracing (`platform`, 1,429 lines)
 
-- [ ] Tracing module
-- [ ] AX exporter, verified in a real AX project (new: never finished in the earlier project)
+- [x] Tracing module (`demo/notes/tracing.py`): span per run record from an allowlist; answer key, Tutor draft and passage text never exported; secrets redacted.
+- [x] AX exporter (`notes.run` traces seen in the AX project by the team): bounded queue, background batches, failures and drops counted, never blocks an answer. One real export of a scripted trace returned success (2 traces, 0 failed). Not run on live-model traces; no AX datasets or experiments.
 
 ## Push 8: Graph
 

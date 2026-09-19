@@ -212,9 +212,12 @@ def _ask_page(snap: dict[str, Any], mode: str, error: str | None = None, status:
                  f'<input type="hidden" name="expected_version" value="{version}">'
                  f'<label for="question">Your question</label>'
                  f'<textarea id="question" name="question" required maxlength="500"></textarea>'
-                 f'<button type="submit">Ask</button></form>{_suggestions(mode)}')
+                 f'<button type="submit">Ask</button>'
+                 f'<p class="note" id="wait">Each answer is checked against your notes before you see it, so it can '
+                 f'take up to half a minute. This page shows nothing new until it is ready. Please do not press Ask '
+                 f'again.</p></form>{_suggestions(mode)}')
     body += ('<form method="post" action="/new"><button class="secondary" type="submit">Start a new session</button></form>'
-             '<form method="post" action="/logout"><button class="secondary" type="submit">Sign out</button></form>')
+             '<p><a href="/sources">Your notes</a></p><form method="post" action="/logout"><button class="secondary" type="submit">Sign out</button></form>')
     return _page("Notes tutor", body, status)
 
 
@@ -393,6 +396,55 @@ def create_app(service: NotesService) -> FastAPI:
         response = RedirectResponse("/ask", status_code=303)
         cookies(response, request, request.cookies.get(TOKEN_COOKIE), view.session_id)
         return response
+
+    def _sources_page(who, error: str | None = None, status: int = 200) -> HTMLResponse:
+        import uuid
+        rows = "".join(
+            f'<li>{_e(x["name"])}: {_e(x["state"])}' + (f' ({_e(x["error"])})' if x.get("error") else "")
+            + ("" if x["builtin"] else
+               f'<form method="post" action="/sources/delete"><input type="hidden" name="source_id" '
+               f'value="{_e(x["source_id"])}"><button type="submit">Delete {_e(x["name"])}</button></form>')
+            + "</li>" for x in service.list_sources(who[0]))
+        body = (f'<h1>Your notes</h1>{_alert(error)}<ul>{rows}</ul>'
+                + ('<form method="post" action="/sources"><h2>Add notes</h2>'
+                   '<label for="name">Name</label><input type="text" id="name" name="name" maxlength="80" required>'
+                   '<label for="text">Paste the text (Markdown or plain)</label>'
+                   '<textarea id="text" name="text" rows="12" required></textarea>'
+                   f'<input type="hidden" name="upload_key" value="{uuid.uuid4().hex}">'
+                   '<button type="submit">Upload</button></form>' if mode == "live" else
+                   '<p>Uploads need the live mode.</p>')
+                + '<p><a href="/ask">Back to questions</a></p>')
+        return _page("Your notes", body, status)
+
+    @app.get("/sources", response_class=HTMLResponse)
+    def sources_page(request: Request):
+        who = current(request)
+        return _sources_page(who) if who else RedirectResponse("/", status_code=303)
+
+    async def source_act(request: Request, call):
+        who = current(request)
+        if who is None:
+            return RedirectResponse("/", status_code=303)
+        data = await form(request)
+        if data is None:
+            return _sources_page(who, "That request was refused.", 400)
+        try:
+            await run_in_threadpool(call, who[0], data)
+        except Exception as exc:                          # noqa: BLE001
+            described = _describe(exc)
+            if described is None:
+                raise
+            return _sources_page(who, described[2], described[0])
+        return RedirectResponse("/sources", status_code=303)
+
+    @app.post("/sources")
+    async def upload(request: Request):
+        return await source_act(request, lambda account, d: service.upload_source(
+            account, d.get("name", ""), d.get("name", "notes") + ".md", d.get("text", ""), d.get("upload_key")))
+
+    @app.post("/sources/delete")
+    async def delete_source(request: Request):
+        return await source_act(request, lambda account, d: service.delete_source(account, d.get("source_id", "")))
 
     @app.post("/logout")
     async def logout(request: Request):
