@@ -88,6 +88,17 @@ The answer is never taken away if the Tutor fails: the answer stays, without the
   see cannot influence the order of one they may.
 - The ask page now tells the user an answer can take up to half a minute.
 
+### Push 5: tracing and Arize AX (built, not yet pushed)
+- `tracing.py` builds a trace from a run's records using an allowlist. The private answer key, the
+  Tutor's draft, check-question context and passage text are never exported; passages appear as file and
+  position. Secret-looking strings are redacted and long text is capped.
+- The exporter queues run ids without blocking, sends batches from a background thread and counts
+  sent, failed and dropped. A failing or slow receiver cannot delay or break an answer.
+- Tracing is on only when `ARIZE_SPACE_ID` and `ARIZE_API_KEY` are set in `.env`; `serve` prints
+  whether it is on.
+- One real export of a scripted trace was accepted and the `notes.run` traces were seen in the team's
+  AX project.
+
 ## 4. How it was checked
 
 - **Tests:** 401 tests pass locally (`python -m pytest tests`), across 16 `tests/test_notes_*.py` files.
@@ -131,4 +142,3 @@ python scripts/notes.py token --name tester1    # issue an access code (shown on
 python scripts/notes.py serve                   # tester page, offline demonstration
 python scripts/notes.py serve --live            # real models (spends the team key), uploads, worker
 ```
-
