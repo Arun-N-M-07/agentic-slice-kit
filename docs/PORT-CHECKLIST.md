@@ -13,6 +13,9 @@ their feature.
 
 - [x] Declaration (`PRE-EVENT-ASSETS.md`)
 - [x] Notes corpus + retrieval (`demo/notes/`; new, not ported)
+- [x] Hybrid retrieval `demo/notes/retrieval.py` (design from the earlier project's `content/retrieval`:
+  keyword rank + embedding rank fused with reciprocal rank fusion). Added after a real run showed
+  embeddings alone ranked the right note fifth of five. Verified on 5 chunks only, which is a weak test.
 - [x] Fixed question set + scripted stub (`demo/notes/`; new, not ported)
 
 ## Push 2: The loop (`api/.../coordinator`, 14 files, 2,406 lines)
@@ -30,7 +33,9 @@ their feature.
 ## Push 4: Live validation and evaluation (`evaluation/`)
 
 - [x] Validation script `scripts/notes.py` (new). Offline stub run verified. **The live
-  OpenRouter run has not been done yet**; until it has, model behavior is unverified.
+  OpenRouter run: 6 of 6 questions passed on the real models (ling-3.0-flash drafts, Haiku gates),
+  and the real gate blocked 4 of 4 hand-written wrong drafts (`probe-gate`). Not yet seen live: the
+  drafter revising after a real objection, and any tester traffic. Six questions is a small sample.
 - [x] Evaluation package, **core only** (`demo/notes/evaluate.py`): deterministic assertions, run
   report with configuration and hashes, paired comparison. **Not ported:** the 59-case dataset
   (written for the earlier project's sources; the kit uses its own 6 questions), the Modal-hosted
@@ -38,9 +43,20 @@ their feature.
 
 ## Push 5: Backend (`identity` 520, `session` 1,824, `transport` 1,488, `db` 510 lines, `shared/contracts`)
 
-- [ ] Sessions and identity
-- [ ] API and WebSocket protocol, cancel, reconnect, contracts
-- [ ] Persistence and migrations
+- [x] Sessions and identity (`demo/notes/sessions.py`, `service.py`): accounts, hashed access codes,
+  versioned sessions, ownership checked at every entry point (another account's session is "not
+  found"), idempotent requests (a retry replays, a reused id with new content is refused), one request
+  at a time, no transaction held across a model call, a per-account hourly limit that protects the
+  shared key. **Not ported:** devices, per-device credentials, PKCE sign-in.
+- [x] API and page (`demo/notes/api.py`): JSON API plus a server-rendered page with no JavaScript;
+  typed errors that never echo input or an exception message; security headers; cookie auth
+  (HttpOnly, SameSite=Strict) with a cross-site check. Cancel exists at the API and stops further model
+  calls (a call already in flight cannot be interrupted, and its result is discarded). **Not ported:**
+  the WebSocket protocol, reconnect, audio and STOP fencing. The page has no STOP button (no JavaScript).
+  **Not tested with NVDA or any assistive technology**; that needs a person.
+- [x] Persistence and migrations (`sessions.py::migrate`): SQLite with forward-only, checksummed
+  migrations (an applied migration that was edited is refused). **Not ported:** PostgreSQL, Alembic,
+  the transactional outbox.
 
 ## Push 6: Pipeline (`content` 3,484, `multimedia` 6,837, `worker` 3,088 lines)
 

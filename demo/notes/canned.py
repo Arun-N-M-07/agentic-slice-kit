@@ -114,7 +114,9 @@ _TUTOR = {
         "The table shows that dividing each voltage by its current gives the same number every "
         "time, which is why the resistance stays the same.",
         {"prompt": "What is a resistor called if its resistance stays constant?",
-         "kind": "short_answer", "correct_answer": "ohmic", "accepted_answers": []}),
+         "kind": "multiple_choice", "correct_answer": "opt-1", "accepted_answers": [],
+         "options": [{"option_id": "opt-1", "text": "ohmic"}, {"option_id": "opt-2", "text": "reactive"},
+                     {"option_id": "opt-3", "text": "inductive"}]}),
     "q4-misconception": (
         "ohms-law-notes.md", "doubles the current",
         "Voltage pushes current through a resistor, and the resistance is a fixed property of it, "
@@ -144,4 +146,4 @@ def scripted_tutor(question_id: str) -> ScriptedModel:
     chunk = _find(doc, needle)
     return ScriptedModel({"tutor": [json.dumps({
         "explanation": explanation, "cited_evidence_ids": [chunk.chunk_id],
-        "check": {**check, "options": [], "evidence_ids": [chunk.chunk_id]}})]})
+        "check": {"options": [], **check, "evidence_ids": [chunk.chunk_id]}})]})

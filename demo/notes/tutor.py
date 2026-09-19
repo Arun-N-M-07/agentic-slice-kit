@@ -244,13 +244,25 @@ def _feedback(check: CheckQuestion, correct: bool, locators: str) -> str:
     """Shown only after the answer is final, so revealing the answer is allowed here."""
     if correct:
         return f"Correct. You can see this in {locators}."
+    if check.kind == "short_answer":
+        # Exact-match grading cannot tell a wrong answer from a right one worded differently, so it
+        # must not say "wrong". (The earlier project graded only multiple choice deterministically
+        # and left free text to judgment; this is the honest wording for the case we cannot judge.)
+        return (f"That does not match the notes' wording. The notes give {check.correct_text()}. "
+                f"See {locators}. If you meant the same thing, you have it.")
     return f"Not quite. The notes give {check.correct_text()}. See {locators}."
 
 
-def build_flow(call=complete):
+def build_flow(call=complete, should_stop=None):
+    """`should_stop` is asked before the model call; True ends the run as "cancelled"."""
+
     def handle_drafting(ctx) -> RunState:
         """Only the model call. Checking happens in GATING, so a failed check is a real
         back-edge (GATING -> DRAFTING) and the runner never sees a state repeat itself."""
+        if should_stop is not None and should_stop():
+            ctx.append("failure", {"kind": "cancelled", "detail": "stopped before the Tutor's model call"},
+                       produced_by="system")
+            return RunState.FAILED
         handoff = ctx.latest("handoff")
         prior = ctx.latest("tutor_draft")
         last = ctx.latest("tutor_check")

@@ -5,6 +5,9 @@
     python scripts/notes.py validate --tutor            # ...and the Tutor turn for answered questions
     python scripts/notes.py validate --live --label a   # REAL models on OpenRouter: spends the team key
     python scripts/notes.py ask "your question" --live  # one live question, with a readable transcript
+    python scripts/notes.py token --name tester1        # an access code for one tester (shown once)
+    python scripts/notes.py serve                       # the tester page, offline demonstration
+    python scripts/notes.py serve --live                # ...on the real models: spends the team key
     python scripts/notes.py compare out/a.json out/b.json
     python scripts/notes.py replay <run_id> --db out/a.db
 
@@ -31,6 +34,7 @@ from demo.notes import evaluate
 from demo.notes.corpus import ingest_notes
 from demo.notes.flow import build_flow
 from demo.notes.questions import QUESTIONS
+from demo.notes.probes import probe_markdown, run_probes
 from demo.notes.validate import LiveNotReady, live_settings, run_validation, transcript
 
 OUT = Path("out")
@@ -83,6 +87,80 @@ def cmd_ask(args) -> int:
     return 0
 
 
+def cmd_probe_gate(args) -> int:
+    """Hand the gate drafts that are wrong on purpose. Live only: a scripted gate proves nothing."""
+    if not args.live:
+        print("probe-gate needs --live: it asks the real gate model to judge 5 hand-written drafts "
+              "(about 5 short calls). A scripted gate would only echo the script.", file=sys.stderr)
+        return 2
+    try:
+        settings = live_settings(load_settings(), allow_fallback=args.allow_fallback)
+    except LiveNotReady as e:
+        print(f"cannot run live: {e}", file=sys.stderr)
+        return 2
+    from slice.llm import complete
+    gate_model = settings.escalation_model if args.gate == "escalation" else None
+    store = Store(str(OUT / "notes-probe.db"))
+    report = run_probes(call=complete, settings=settings, store=store, gate_model=gate_model)
+    md = probe_markdown(report)
+    (OUT / "notes-probe.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    (OUT / "notes-probe.md").write_text(md, encoding="utf-8")
+    print(md)
+    ok = report["wrong_drafts_blocked"] == report["wrong_drafts"] and report["control_passed"]
+    return 0 if ok else 1
+
+
+DEFAULT_APP_DB = OUT / "notes-app.db"
+
+
+def cmd_token(args) -> int:
+    """Issue an access code. Only its hash is stored, so this is the one time it can be shown."""
+    from demo.notes import sessions as S
+    db_path = Path(args.db)
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    store = Store(str(db_path))
+    S.migrate(store.db)
+    account = S.create_account(store.db, args.name)
+    token = S.issue_token(store.db, account)
+    print(f"account   {account}  ({args.name})")
+    print(f"access code (shown once; give it only to {args.name}):")
+    print()
+    print(f"    {token}")
+    print()
+    return 0
+
+
+def cmd_serve(args) -> int:
+    from demo.notes.api import create_app
+    from demo.notes.service import LiveProvider, NotesService, ScriptedProvider
+    settings = load_settings()
+    try:
+        provider = (LiveProvider(settings, gate=args.gate, allow_fallback=args.allow_fallback)
+                    if args.live else ScriptedProvider(settings))
+    except LiveNotReady as e:
+        print(f"cannot run live: {e}", file=sys.stderr)
+        return 2
+    db_path = Path(args.db)
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        service = NotesService(str(db_path), provider, max_requests_per_hour=args.max_requests_per_hour)
+    except ImportError as e:            # the embedding search lives in the kit's environment
+        print(f"cannot run live: retrieval needs the kit's environment ({e}).", file=sys.stderr)
+        return 2
+    accounts = service._open().db.execute("SELECT COUNT(*) FROM accounts").fetchone()[0]
+    print(f"{'LIVE (spends the OpenRouter key)' if args.live else 'OFFLINE demonstration (scripted, free)'}"
+          f" on http://{args.host}:{args.port}   database {db_path}")
+    if accounts == 0:
+        print("No access codes exist yet. In another terminal: python scripts/notes.py token --name tester1 "
+              f"--db {db_path}")
+    if args.host not in ("127.0.0.1", "localhost"):
+        print("WARNING: this is reachable from other machines. Use https (a tunnel) so access codes and "
+              "cookies are not sent in the clear, and give codes only to real testers.")
+    import uvicorn
+    uvicorn.run(create_app(service), host=args.host, port=args.port, log_level="warning")
+    return 0
+
+
 def cmd_compare(args) -> int:
     baseline = json.loads(Path(args.baseline).read_text(encoding="utf-8"))
     candidate = json.loads(Path(args.candidate).read_text(encoding="utf-8"))
@@ -120,6 +198,24 @@ def main() -> int:
     a.add_argument("text")
     a.set_defaults(func=cmd_ask)
 
+    g = sub.add_parser("probe-gate", help="feed the real gate deliberately wrong drafts (live only)")
+    live_options(g)
+    g.set_defaults(func=cmd_probe_gate)
+
+    t = sub.add_parser("token", help="issue an access code for a tester (shown once)")
+    t.add_argument("--name", required=True, help="who it is for, e.g. tester1")
+    t.add_argument("--db", default=str(DEFAULT_APP_DB))
+    t.set_defaults(func=cmd_token)
+
+    sv = sub.add_parser("serve", help="run the tester page and API")
+    live_options(sv)
+    sv.add_argument("--db", default=str(DEFAULT_APP_DB))
+    sv.add_argument("--host", default="127.0.0.1", help="127.0.0.1 keeps it on this machine")
+    sv.add_argument("--port", type=int, default=8000)
+    sv.add_argument("--max-requests-per-hour", type=int, default=60, dest="max_requests_per_hour",
+                    help="per account; protects the shared key in live mode")
+    sv.set_defaults(func=cmd_serve)
+
     c = sub.add_parser("compare", help="paired comparison of two reports")
     c.add_argument("baseline")
     c.add_argument("candidate")
@@ -131,6 +227,12 @@ def main() -> int:
     r.set_defaults(func=cmd_replay)
 
     args = p.parse_args()
+    # Real models write symbols (an ohm sign, a minus sign). The Windows console defaults to a
+    # legacy code page that cannot print them, which crashed a live replay. Print UTF-8, and
+    # never fail on a character the terminal cannot show.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     OUT.mkdir(exist_ok=True)
     return args.func(args)
 

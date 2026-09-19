@@ -331,3 +331,32 @@ def test_answer_matching_is_whole_token_and_nothing_looser():
     assert grade(check, "the second one") is False, "positional phrasing is not guessed at"
     assert grade(check, "opt-1") is True and grade(check, "") is False
     assert normalize("  Two   Ohms! ") == "two ohms"
+
+
+def test_a_stop_before_the_tutors_model_call_spends_nothing(tmp_path):
+    store = Store(str(tmp_path / "t.db"))
+    run_id = start_tutor_run(store, _notes_run(store))
+    stub = ScriptedModel({"tutor": [_turn(check=_mc())]})
+    final = runner.advance(store, run_id, build_flow(call=stub, should_stop=lambda: True), load_settings())
+
+    assert final is RunState.FAILED and store.latest(run_id, "failure")["kind"] == "cancelled"
+    assert stub.calls == []
+
+
+def test_a_short_answer_mismatch_is_reported_as_a_mismatch_not_as_a_wrong_answer(tmp_path):
+    store, _, run_id, _, flow = _start(tmp_path, [_turn(check=_sa())])
+    _advance(store, run_id, flow)
+    _answer(store, run_id, "ohm-ish")
+    _advance(store, run_id, flow)
+
+    text = public_view(store, run_id)["feedback"]
+    assert text.startswith("That does not match the notes") and "Not quite" not in text
+    assert "ohmic" in text, "once the answer is final the notes' wording may be shown"
+    assert store.latest(run_id, "attempt")["correct"] is False, "the fact is still recorded"
+
+
+def test_the_tutor_is_told_to_prefer_multiple_choice():
+    from pathlib import Path
+    from demo.notes import tutor as tutor_module
+    prompt = (Path(tutor_module.__file__).parent / "prompts" / "tutor.md").read_text(encoding="utf-8")
+    assert "Prefer `multiple_choice`" in prompt

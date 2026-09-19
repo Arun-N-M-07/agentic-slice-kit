@@ -25,6 +25,10 @@ Offer a question only if it helps, and only about something the evidence states 
 words. The correct answer must appear in the cited evidence exactly as you write it
 (a number with its unit, or a short phrase). If no such question exists, offer none.
 
+**Prefer `multiple_choice`.** It is graded exactly and fairly. A `short_answer` is graded by exact
+match, so a correct answer worded differently would not match; use it only when the answer is a
+single number with a unit or one specific term.
+
 Two kinds are allowed:
 - `multiple_choice`: 2 to 4 options, each with an `option_id` and `text`; `correct_answer`
   is the `option_id` of the right one.

@@ -300,3 +300,21 @@ def test_the_script_can_replay_a_stored_run_and_compare_two_reports(tmp_path):
     first_run = store.db.execute("SELECT id FROM runs ORDER BY created_at LIMIT 1").fetchone()["id"]
     replayed = _cli(tmp_path, "replay", first_run, "--db", str(tmp_path / "out/notes-a.db"))
     assert replayed.returncode == 0 and "question" in replayed.stdout
+
+
+def test_replay_prints_symbols_a_real_model_writes_even_on_a_legacy_console(tmp_path):
+    """A live model wrote an ohm sign and the Windows console (cp1252) could not print it, which
+    crashed the replay. The script must print such text, whatever the terminal's encoding."""
+    (tmp_path / "out").mkdir(exist_ok=True)
+    store = Store(str(tmp_path / "out" / "notes-sym.db"))
+    run_id = store.create_run("notes")
+    store.append(run_id, "input", {"text": "What is the resistance?"}, produced_by="system")
+    store.append(run_id, "draft", {"action": "answer", "text": "R = 5 Ω and 3 − 1 = 2",
+                                   "requirements": [], "assessments": [], "cited_evidence_ids": []},
+                 produced_by="agent:draft")
+    env = {**os.environ, "OPENROUTER_API_KEY": "", "PYTHONIOENCODING": "cp1252"}
+    result = subprocess.run([sys.executable, str(ROOT / "scripts" / "notes.py"), "replay", run_id,
+                             "--db", str(tmp_path / "out" / "notes-sym.db")],
+                            cwd=tmp_path, capture_output=True, timeout=60, env=env)
+    assert result.returncode == 0, result.stderr.decode("utf-8", "replace")
+    assert "Ω".encode("utf-8") in result.stdout

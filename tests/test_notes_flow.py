@@ -247,3 +247,39 @@ def test_retrieved_text_cannot_close_the_tag_that_marks_it_as_data():
     body = messages[1]["content"]
     assert body.count("</untrusted_evidence>") == 1, "hostile text closed the data tag itself"
     assert "&lt;/untrusted_evidence&gt;" in body
+
+
+# ------------------------------------------------------------------- cancel
+
+def test_a_stop_before_the_first_model_call_spends_nothing_and_ends_as_cancelled(tmp_path):
+    stub = ScriptedModel({"draft": [_draft(TABLE.chunk_id, "2 ohms.")], "gate": [PASS]})
+    store = Store(str(tmp_path / "t.db"))
+    run_id = store.create_run("notes")
+    store.append(run_id, "input", {"text": Q1}, produced_by="system")
+    flow = build_flow(call=stub, search=CountingSearch(OHMS), should_stop=lambda: True)
+    final = runner.advance(store, run_id, flow, load_settings())
+
+    assert final is RunState.FAILED and store.latest(run_id, "failure")["kind"] == "cancelled"
+    assert stub.calls == [], "a stopped run must not spend a model call"
+
+
+def test_a_stop_during_a_run_prevents_every_later_model_call(tmp_path):
+    """STOP arrives while the first draft is being written. The draft may finish (a call in
+    flight cannot be interrupted) but no gate call and no revision may follow."""
+    stopped = {"now": False}
+
+    class StoppingModel(ScriptedModel):
+        def __call__(self, **kwargs):
+            reply = super().__call__(**kwargs)
+            stopped["now"] = True              # the student presses STOP while this call runs
+            return reply
+
+    stub = StoppingModel({"draft": [_draft(TABLE.chunk_id, "2 ohms.")], "gate": [PASS]})
+    store = Store(str(tmp_path / "t.db"))
+    run_id = store.create_run("notes")
+    store.append(run_id, "input", {"text": Q1}, produced_by="system")
+    flow = build_flow(call=stub, search=CountingSearch(OHMS), should_stop=lambda: stopped["now"])
+    final = runner.advance(store, run_id, flow, load_settings())
+
+    assert final is RunState.FAILED and store.latest(run_id, "failure")["kind"] == "cancelled"
+    assert stub.calls == ["draft"], "the gate must not be called after STOP"

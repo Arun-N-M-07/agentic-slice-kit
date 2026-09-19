@@ -165,11 +165,14 @@ def _default_search(store, query: str, k: int):
 
 def build_flow(call=complete, search=_default_search, now=time.time,
                max_model_calls: int = MAX_MODEL_CALLS, deadline_seconds: float = DEADLINE_SECONDS,
-               gate_model: str | None = None):
+               gate_model: str | None = None, should_stop=None):
     """Return the Flow. `call`, `search` and `now` are injected so the whole state machine
     runs with canned replies, canned passages and a fake clock: no key, no network, no
     embeddings, no waiting. `gate_model` runs the gate on a different (usually stronger) model
-    than the drafter; None means the kit's default model, as for the draft."""
+    than the drafter; None means the kit's default model, as for the draft. `should_stop` is asked
+    before every model call: when it returns True the run ends as "cancelled" (a student pressed
+    STOP, or left). A call already in flight cannot be interrupted, so its result is simply never
+    used."""
 
     def _model_calls_used(ctx) -> int:
         drafts = len(ctx.history("draft"))
@@ -178,6 +181,8 @@ def build_flow(call=complete, search=_default_search, now=time.time,
 
     def _limit_reached(ctx) -> str | None:
         """Checked BEFORE a model call, so refusing to start is what costs nothing."""
+        if should_stop is not None and should_stop():
+            return "cancelled"
         if _model_calls_used(ctx) >= max_model_calls:
             return "model_calls"
         started = ctx.history("input")[0].created_at
