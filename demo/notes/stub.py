@@ -24,6 +24,7 @@ class ScriptedModel:
         self._used: dict[str, int] = {}
         self.calls: list[str] = []
         self.messages: list[list[dict]] = []
+        self.models: list[str | None] = []      # the model each call asked for, in order
 
     def __call__(self, *, settings, budget, messages, schema: Type[BaseModel] | None = None,
                  model: str | None = None, step: str = "call", timeout: float = 120.0) -> Any:
@@ -32,6 +33,7 @@ class ScriptedModel:
         self._used[base] = n + 1
         self.calls.append(step)
         self.messages.append(messages)
+        self.models.append(model)
 
         try:
             raw = self._script[base][n]

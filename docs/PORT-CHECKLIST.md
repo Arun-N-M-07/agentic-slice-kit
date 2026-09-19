@@ -23,14 +23,18 @@ their feature.
 
 ## Push 3: Safety and Tutor (`coordinator`, `learning/tutor`, `learning/quiz`)
 
-- [ ] Stop rules and budget (`limits.py`, no-progress rule)
-- [ ] Untrusted-text guard (prompts, tool registry)
-- [ ] Tutor step, check question, grading (`learning/tutor`, `learning/quiz`, `learning/assessment`; 24 files, 3,665 lines)
+- [x] Stop rules and budget (`limits.py`, no-progress rule)
+- [x] Untrusted-text guard (prompts, tool registry)
+- [x] Tutor step, check question, grading (`learning/tutor`, `learning/quiz`, `learning/assessment`; 24 files, 3,665 lines)
 
 ## Push 4: Live validation and evaluation (`evaluation/`)
 
-- [ ] OpenRouter validation script (new)
-- [ ] Evaluation package: dataset, rubrics, assertions, review sheet, runner (about 40 scripts, 59 cases)
+- [x] Validation script `scripts/notes.py` (new). Offline stub run verified. **The live
+  OpenRouter run has not been done yet**; until it has, model behavior is unverified.
+- [x] Evaluation package, **core only** (`demo/notes/evaluate.py`): deterministic assertions, run
+  report with configuration and hashes, paired comparison. **Not ported:** the 59-case dataset
+  (written for the earlier project's sources; the kit uses its own 6 questions), the Modal-hosted
+  judge, calibration, review sheets, Arize AX upload. There is no quality score.
 
 ## Push 5: Backend (`identity` 520, `session` 1,824, `transport` 1,488, `db` 510 lines, `shared/contracts`)
 

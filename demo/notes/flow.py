@@ -12,13 +12,16 @@ Two model calls per cycle at most: one draft, one gate. If the ledger already fi
 a mechanical problem, the gate model is NOT called: there is nothing for it to judge
 that code has not already rejected, and the call would cost tokens for no information.
 
-Stop rules here are deliberately just the revision limit. The fuller no-progress and
-budget rules are the next port; until then MAX_REVISIONS keeps the loop bounded.
+Stop rules (ported from the earlier project's bounded turn): the revision limit, a cap
+on model calls, a deadline, and a no-progress rule. Whichever fires, the run ends with a
+recorded reason and an honest reply that claims nothing the notes were not shown to
+support. Code decides every stop; the model never does.
 """
 from __future__ import annotations
 
 import html
 import json
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -32,6 +35,17 @@ MAX_REVISIONS = 3
 """Drafts the gate may send back before the run stops. Counted from the record
 history, not from budget.attempt(): that one is a spend fence and also ticks for
 malformed-reply retries, so sharing a counter silently costs a student a revision."""
+
+MAX_MODEL_CALLS = 6
+"""Model calls (drafts + model gate verdicts) one run may spend: three full cycles. The
+earlier project shared one such budget across retries, fallback and delegation; here it is
+counted from the record, so it survives a resume. Retries inside slice.llm.complete are
+not visible from a flow: they are bounded by the kit's token fence instead."""
+
+DEADLINE_SECONDS = 90.0
+"""Wall-clock time from the question being recorded. Checked before each model call, so a
+slow provider stops the run instead of stretching it. The earlier project used 20 s for an
+interactive answer; a revising loop over real models needs more, and this is a demo default."""
 
 TOP_K = 3
 """Passages retrieved per question. Few on purpose: every passage is tokens in both
@@ -49,6 +63,12 @@ def _untrusted(text: str) -> str:
     return html.escape(text, quote=False)
 
 
+def _attr(text: str) -> str:
+    """Escape data placed inside an attribute value. Quotes must be escaped too: a file
+    name is untrusted, and one containing a quote could otherwise forge attributes."""
+    return html.escape(text, quote=True)
+
+
 # ------------------------------------------------------------------ messages
 
 def _evidence_block(evidence: list[Evidence]) -> str:
@@ -57,8 +77,8 @@ def _evidence_block(evidence: list[Evidence]) -> str:
     lines = ["VALIDATED EVIDENCE:"]
     for e in evidence:
         lines.append(
-            f'<untrusted_evidence id="{_untrusted(e.evidence_id)}" '
-            f'locator="{_untrusted(e.locator)}">{_untrusted(e.text)}</untrusted_evidence>')
+            f'<untrusted_evidence id="{_attr(e.evidence_id)}" '
+            f'locator="{_attr(e.locator)}">{_untrusted(e.text)}</untrusted_evidence>')
     return "\n".join(lines)
 
 
@@ -113,6 +133,29 @@ def objections_from_problems(problems: list[str]) -> list[Objection]:
     return out
 
 
+def limited_reply(ledger: EvidenceLedger, draft: AnswerDraft | None, reason: str) -> str:
+    """What the student is told when the run stops without a passing answer.
+
+    Ported from the earlier project's "limited" outcome. It deliberately does NOT list
+    claims as supported: the ledger only proves a citation is real, not that the text says
+    what the draft claims (that is the gate's job, and the gate may be what stopped us).
+    It says where the evidence was and what could not be established, and it does not guess.
+    """
+    parts = ["I stopped before I could give you a checked answer."]
+    if ledger.evidence:
+        where = ", ".join(sorted({e.locator for e in ledger.evidence.values()}))
+        parts.append(f"I looked at your notes ({where}) but could not confirm an answer from them.")
+    else:
+        parts.append("I found nothing in your notes that answers this.")
+    if draft is not None:
+        ledger.check_draft(draft)
+        open_reqs = [s.requirement.description for s in ledger.open_requirements()]
+        if open_reqs:
+            parts.append("Not established: " + "; ".join(open_reqs) + ".")
+    parts.append("I won't guess. You can rephrase the question or point me to another part of your notes.")
+    return " ".join(parts)
+
+
 def _default_search(store, query: str, k: int):
     from .corpus import search_notes
     return search_notes(store, query, k=k)
@@ -120,15 +163,47 @@ def _default_search(store, query: str, k: int):
 
 # ------------------------------------------------------------------ handlers
 
-def build_flow(call=complete, search=_default_search):
-    """Return the Flow. `call` and `search` are injected so the whole state machine
-    runs with canned replies and canned passages: no key, no network, no embeddings."""
+def build_flow(call=complete, search=_default_search, now=time.time,
+               max_model_calls: int = MAX_MODEL_CALLS, deadline_seconds: float = DEADLINE_SECONDS,
+               gate_model: str | None = None):
+    """Return the Flow. `call`, `search` and `now` are injected so the whole state machine
+    runs with canned replies, canned passages and a fake clock: no key, no network, no
+    embeddings, no waiting. `gate_model` runs the gate on a different (usually stronger) model
+    than the drafter; None means the kit's default model, as for the draft."""
+
+    def _model_calls_used(ctx) -> int:
+        drafts = len(ctx.history("draft"))
+        gates = sum(1 for v in ctx.history("verdict") if v.produced_by == "agent:gate")
+        return drafts + gates
+
+    def _limit_reached(ctx) -> str | None:
+        """Checked BEFORE a model call, so refusing to start is what costs nothing."""
+        if _model_calls_used(ctx) >= max_model_calls:
+            return "model_calls"
+        started = ctx.history("input")[0].created_at
+        if now() - started >= deadline_seconds:
+            return "deadline"
+        return None
+
+    def _stop(ctx, kind: str, detail: str) -> RunState:
+        evidence = ctx.latest("evidence")
+        ledger = EvidenceLedger()
+        if evidence:
+            ledger.add_evidence(Evidence(**c) for c in evidence["passages"])
+        latest = ctx.latest("draft")
+        draft = AnswerDraft.model_validate(latest) if latest else None
+        ctx.append("failure", {"kind": kind, "detail": detail,
+                               "reply": limited_reply(ledger, draft, kind)}, produced_by="system")
+        return RunState.FAILED
 
     def _evidence(ctx) -> list[Evidence]:
         return [Evidence(**c) for c in ctx.latest("evidence")["passages"]]
 
     def handle_drafting(ctx) -> RunState:
         question = ctx.latest("input")["text"]
+        limit = _limit_reached(ctx)
+        if limit:
+            return _stop(ctx, limit, "Stopped before a draft: " + limit.replace("_", " ") + " limit reached.")
 
         if ctx.latest("evidence") is None:            # retrieve once, on the first pass
             passages = [Evidence.from_chunk(c) for c in search(ctx.store, question, TOP_K)]
@@ -162,24 +237,33 @@ def build_flow(call=complete, search=_default_search):
             verdict = Verdict(status="BLOCK", objections=objections_from_problems(problems))
             ctx.append("verdict", verdict.model_dump(), produced_by="system:ledger")
         else:
+            limit = _limit_reached(ctx)
+            if limit:
+                return _stop(ctx, limit, "Stopped before the gate: " + limit.replace("_", " ") + " limit reached.")
             verdict = call(
                 settings=ctx.settings, budget=ctx.budget,
                 messages=build_gate_messages(question, evidence, draft.model_dump()),
-                schema=Verdict, step="gate",
+                schema=Verdict, step="gate", model=gate_model,
             )
             ctx.append("verdict", verdict.model_dump(), produced_by="agent:gate")
 
         if verdict.status == "PASS":
             return RunState.COMPLETE
 
+        # A revision identical to the draft before it will be blocked for the same reason
+        # again. This is the earlier project's no-progress rule: an action that cannot
+        # produce anything new is refused, so the run stops here instead of spending
+        # another cycle to learn nothing.
+        drafts = ctx.history("draft")
+        if len(drafts) >= 2 and drafts[-1].payload == drafts[-2].payload:
+            return _stop(ctx, "no_progress",
+                         "The revision was identical to the draft before it, so another cycle "
+                         "would be blocked for the same reasons.")
+
         # Counted from the record, not from the budget. See MAX_REVISIONS.
         blocks = sum(1 for v in ctx.history("verdict") if v.payload["status"] == "BLOCK")
         if blocks >= MAX_REVISIONS:
-            ctx.append("failure",
-                       {"kind": "gate_exhausted",
-                        "detail": f"Blocked {blocks} times; no revision passed."},
-                       produced_by="system")
-            return RunState.FAILED
+            return _stop(ctx, "gate_exhausted", f"Blocked {blocks} times; no revision passed.")
         return RunState.DRAFTING
 
     return SimpleNamespace(

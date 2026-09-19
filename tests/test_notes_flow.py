@@ -9,6 +9,7 @@ follows the prompts; that is what the OpenRouter validation run is for.
 from __future__ import annotations
 
 import json
+import time
 
 from demo.notes.corpus import note_texts
 from demo.notes.flow import MAX_REVISIONS, TOP_K, build_draft_messages, build_flow
@@ -150,13 +151,73 @@ def test_a_gap_stated_while_everything_is_supported_is_blocked_by_code(tmp_path)
 # ------------------------------------------------------------------- bounds
 
 def test_a_draft_the_gate_can_never_accept_ends_the_run_with_a_recorded_reason(tmp_path):
-    bad = _draft(TABLE.chunk_id, "The resistance is 3 ohms.")
-    stub = ScriptedModel({"draft": [bad] * MAX_REVISIONS, "gate": [_block("wrong")] * MAX_REVISIONS})
+    drafts = [_draft(TABLE.chunk_id, f"The resistance is {n} ohms.") for n in (3, 4, 5)]
+    stub = ScriptedModel({"draft": drafts, "gate": [_block("wrong")] * MAX_REVISIONS})
     store, run_id, final = _run(tmp_path, Q1, stub, CountingSearch(OHMS))
 
     assert final is RunState.FAILED
     assert len(store.history(run_id, "draft")) == MAX_REVISIONS
     assert store.latest(run_id, "failure")["kind"] == "gate_exhausted"
+
+
+def test_a_revision_identical_to_the_last_draft_stops_the_run_early(tmp_path):
+    """The no-progress rule: the drafter ignored the objection, so another cycle would
+    only be blocked again. Stopping after the second draft saves a gate call and a draft."""
+    same = _draft(TABLE.chunk_id, "The resistance is 3 ohms.")
+    stub = ScriptedModel({"draft": [same, same, same], "gate": [_block("wrong"), _block("wrong")]})
+    store, run_id, final = _run(tmp_path, Q1, stub, CountingSearch(OHMS))
+
+    assert final is RunState.FAILED
+    assert store.latest(run_id, "failure")["kind"] == "no_progress"
+    assert len(store.history(run_id, "draft")) == 2
+    assert stub.calls == ["draft", "gate", "draft", "gate"]
+
+
+def test_the_model_call_cap_stops_the_run_before_the_next_call(tmp_path):
+    drafts = [_draft(TABLE.chunk_id, f"The resistance is {n} ohms.") for n in (3, 4, 5)]
+    stub = ScriptedModel({"draft": drafts, "gate": [_block("wrong")] * 3})
+    store, run_id = Store(str(tmp_path / "t.db")), None
+    run_id = store.create_run("notes")
+    store.append(run_id, "input", {"text": Q1}, produced_by="system")
+    flow = build_flow(call=stub, search=CountingSearch(OHMS), max_model_calls=3)
+    final = runner.advance(store, run_id, flow, load_settings())
+
+    assert final is RunState.FAILED
+    assert store.latest(run_id, "failure")["kind"] == "model_calls"
+    assert len(stub.calls) == 3, "the fourth call must not be made"
+
+
+def test_the_deadline_stops_the_run_before_any_model_call(tmp_path):
+    stub = ScriptedModel({"draft": [_draft(TABLE.chunk_id, "2 ohms.")], "gate": [PASS]})
+    store = Store(str(tmp_path / "t.db"))
+    run_id = store.create_run("notes")
+    store.append(run_id, "input", {"text": Q1}, produced_by="system")
+    later = lambda: time.time() + 10_000
+    flow = build_flow(call=stub, search=CountingSearch(OHMS), now=later, deadline_seconds=60)
+    final = runner.advance(store, run_id, flow, load_settings())
+
+    assert final is RunState.FAILED
+    assert store.latest(run_id, "failure")["kind"] == "deadline"
+    assert stub.calls == [], "a run past its deadline must not spend a model call"
+
+
+def test_a_stopped_run_replies_honestly_and_never_claims_an_answer(tmp_path):
+    drafts = [_draft(TABLE.chunk_id, f"The resistance is {n} ohms.") for n in (3, 4, 5)]
+    stub = ScriptedModel({"draft": drafts, "gate": [_block("wrong")] * MAX_REVISIONS})
+    store, run_id, _ = _run(tmp_path, Q1, stub, CountingSearch(OHMS))
+    reply = store.latest(run_id, "failure")["reply"]
+
+    assert reply.startswith("I stopped before I could give you a checked answer.")
+    assert "ohms-law-notes.md" in reply, "it should say where it looked"
+    assert "I won't guess" in reply
+    assert "ohms." not in reply, "a blocked draft's claim must not leak into the reply"
+
+
+def test_a_stopped_run_with_no_passages_says_the_notes_have_nothing(tmp_path):
+    stub = ScriptedModel({"draft": [_draft("none", "x", action="state_gap")] * 3,
+                          "gate": [_block("the gap is not real")] * 3})
+    store, run_id, _ = _run(tmp_path, "anything", stub, CountingSearch([]))
+    assert "I found nothing in your notes" in store.latest(run_id, "failure")["reply"]
 
 
 def test_passages_are_retrieved_once_however_many_revisions(tmp_path):
