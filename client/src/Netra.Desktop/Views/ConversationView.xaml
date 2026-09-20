@@ -1,0 +1,125 @@
+<UserControl x:Class="Netra.Desktop.Views.ConversationView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:dto="clr-namespace:Netra.Desktop.Protocol.Dto">
+
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Netra Study Session" FontSize="20" Margin="0,0,0,8" />
+
+        <ListBox x:Name="TranscriptList" Grid.Row="1"
+                 ItemsSource="{Binding Transcript}"
+                 AutomationProperties.Name="Conversation transcript"
+                 TabIndex="0">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock>
+                        <Run Text="{Binding Speaker, Mode=OneWay}" FontWeight="Bold" />
+                        <Run Text=": " />
+                        <Run Text="{Binding Text, Mode=OneWay}" />
+                    </TextBlock>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <TextBlock x:Name="StatusRegion" Grid.Row="2" Margin="0,8,0,0"
+                   Text="{Binding StatusMessage}"
+                   AutomationProperties.LiveSetting="Polite"
+                   AutomationProperties.Name="Status" />
+
+        <!-- Voice status and live captions are shown, never announced: they
+             change while the microphone is open, and speech from the screen
+             reader would be recorded into the student's question. What was
+             finally heard is announced through Status once capture ends. -->
+        <TextBlock x:Name="VoiceStatusText" Grid.Row="3" Margin="0,4,0,0"
+                   TextWrapping="Wrap"
+                   AutomationProperties.Name="Voice input status">
+            <Run Text="Voice (hold F9 to speak): " FontWeight="Bold" />
+            <Run Text="{Binding VoiceStatus, Mode=OneWay}" />
+        </TextBlock>
+
+        <TextBlock x:Name="InterimRegion" Grid.Row="4" Margin="0,4,0,8"
+                   Text="{Binding InterimTranscript}"
+                   FontStyle="Italic"
+                   TextWrapping="Wrap"
+                   AutomationProperties.LiveSetting="Off"
+                   AutomationProperties.Name="Live captioning" />
+
+        <StackPanel Grid.Row="5">
+            <Grid Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBox x:Name="InputBox" Grid.Column="0"
+                         Text="{Binding InputText, UpdateSourceTrigger=PropertyChanged}"
+                         AutomationProperties.Name="Message input"
+                         AutomationProperties.HelpText="Type a question and press Enter, or hold F9 to speak."
+                         TabIndex="1" Margin="0,0,8,0" VerticalContentAlignment="Center">
+                    <TextBox.InputBindings>
+                        <KeyBinding Key="Return" Command="{Binding SubmitCommand}" />
+                    </TextBox.InputBindings>
+                </TextBox>
+
+                <Button Grid.Column="1" Content="Send" Command="{Binding SubmitCommand}"
+                        AutomationProperties.Name="Send" TabIndex="2" Margin="0,0,4,0" Padding="8,4" />
+                <Button Grid.Column="2" Content="Stop (Esc)" Command="{Binding StopCommand}"
+                        AutomationProperties.Name="Stop" AutomationProperties.AcceleratorKey="Escape"
+                        TabIndex="3" Padding="8,4" />
+            </Grid>
+
+            <!-- The ten contracted commands (STOP above): each is also a
+                 window-wide shortcut, listed in Preferences and status (F1). -->
+            <TextBlock x:Name="ReadingControlsHeading" Text="Reading controls" FontWeight="SemiBold" Margin="0,0,0,4"
+                       AutomationProperties.HeadingLevel="Level2" />
+            <WrapPanel x:Name="ReadingControls" AutomationProperties.Name="Reading controls">
+                <Button Content="Pause" Command="{Binding NavigationCommandRequest}"
+                        CommandParameter="{x:Static dto:NavigationCommandType.Pause}"
+                        AutomationProperties.Name="Pause" AutomationProperties.AcceleratorKey="Control+P"
+                        TabIndex="4" Margin="0,0,4,4" Padding="8,4" />
+                <Button Content="Continue" Command="{Binding NavigationCommandRequest}"
+                        CommandParameter="{x:Static dto:NavigationCommandType.Continue}"
+                        AutomationProperties.Name="Continue" AutomationProperties.AcceleratorKey="Control+Shift+P"
+                        TabIndex="5" Margin="0,0,4,4" Padding="8,4" />
+                <Button Content="Previous" Command="{Binding NavigationCommandRequest}"
+                        CommandParameter="{x:Static dto:NavigationCommandType.Previous}"
+                        AutomationProperties.Name="Previous" AutomationProperties.AcceleratorKey="Control+Left"
+                        TabIndex="6" Margin="0,0,4,4" Padding="8,4" />
+                <Button Content="Repeat" Command="{Binding NavigationCommandRequest}"
+                        CommandParameter="{x:Static dto:NavigationCommandType.Repeat}"
+                        AutomationProperties.Name="Repeat" AutomationProperties.AcceleratorKey="Control+R"
+                        TabIndex="7" Margin="0,0,4,4" Padding="8,4" />
+                <Button Content="Next" Command="{Binding NavigationCommandRequest}"
+                        CommandParameter="{x:Static dto:NavigationCommandType.Next}"
+                        AutomationProperties.Name="Next" AutomationProperties.AcceleratorKey="Control+Right"
+                        TabIndex="8" Margin="0,0,4,4" Padding="8,4" />
+                <Button Content="Where am I" Command="{Binding NavigationCommandRequest}"
+                        CommandParameter="{x:Static dto:NavigationCommandType.WhereAmI}"
+                        AutomationProperties.Name="Where am I" AutomationProperties.AcceleratorKey="Control+L"
+                        TabIndex="9" Margin="0,0,4,4" Padding="8,4" />
+                <Button Content="Back to reading" Command="{Binding NavigationCommandRequest}"
+                        CommandParameter="{x:Static dto:NavigationCommandType.BackToReading}"
+                        AutomationProperties.Name="Back to reading" AutomationProperties.AcceleratorKey="Control+B"
+                        TabIndex="10" Margin="0,0,4,4" Padding="8,4" />
+                <Button Content="Undo jump" Command="{Binding NavigationCommandRequest}"
+                        CommandParameter="{x:Static dto:NavigationCommandType.UndoJump}"
+                        AutomationProperties.Name="Undo jump" AutomationProperties.AcceleratorKey="Control+U"
+                        TabIndex="11" Margin="0,0,4,4" Padding="8,4" />
+                <Button Content="Return to question" Command="{Binding NavigationCommandRequest}"
+                        CommandParameter="{x:Static dto:NavigationCommandType.ReturnToQuestion}"
+                        AutomationProperties.Name="Return to question" AutomationProperties.AcceleratorKey="Control+Q"
+                        TabIndex="12" Margin="0,0,4,4" Padding="8,4" />
+            </WrapPanel>
+        </StackPanel>
+    </Grid>
+</UserControl>

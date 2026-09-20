@@ -1,163 +1,114 @@
-# Agentic Slice Kit
+# Netra
 
-A starter kit for building a **working agentic slice** in two days.
+Netra targets independent study on Windows through PDF and lecture exploration,
+source-grounded tutoring, keyboard/NVDA access and optional speech. Exactly two
+agents, Coordinator and Tutor, use bounded services and preserve the reading position.
 
-Not a framework. Not a library. About 1,100 lines you are expected to read,
-understand, and edit — because the architecture is the thing being taught, and
-you cannot learn an architecture you have imported.
-
-> **Status: spine complete. 64 tests — 61 of them run with no key and no
-> network; the three in `tests/test_integration.py` need a live key and a
-> reachable provider. `demo/` is next.**
-
----
+This repository follows the [agentic-slice-kit](https://github.com/rsimhan/agentic-slice-kit)
+layout: the kit's spine and tools sit at the root, and Netra's product keeps its
+own folders beside them. The runnable slice for the Agent-a-thon is
+[`demo/notes`](demo/notes/): a student asks about their notes, a draft must cite
+retrieved passages, code checks the citations, and a gate model judges the
+draft and **sends it back** when the evidence does not support it.
 
 ## Start here
 
-Click **Open in Codespaces**. Nothing to install — no Python, no Node, no
-Docker. You need a browser and a GitHub account.
-
 ```bash
 cp .env.example .env      # then paste the key from the registration desk
-python -m pytest          # should be green
 ```
 
-Only `OPENROUTER_API_KEY` is required. Everything else in `.env` is an upgrade
-you can add at hour four, not a blocker at hour zero.
+In the Codespace everything is installed. Elsewhere, use Python 3.13 and run
+`pip install -r requirements.txt` once.
 
----
+```bash
+python -m pytest
+```
 
-## What "agentic" means here
+```bash
+python scripts/doctor.py
+```
 
-A single-prompt LLM wrapper does not qualify, however clever the prompt. A real
-agentic slice demonstrates at least one of:
+```bash
+python scripts/notes.py validate --only q1-resistance-from-table
+```
 
-- **state persistence** across steps
-- **autonomous tool or API use**
-- **multi-step reasoning or decomposition**
-- **human-in-the-loop callback mechanics**
+```bash
+python scripts/notes.py serve
+```
 
-Useful as that list is, one line does most of the sorting: **an agent is a
-workflow that can go backwards.** Straight through A → B → C is a pipeline,
-however many models are in it. The moment a later step can hand work back to an
-earlier one and the run carries on from there, you have the thing. That
-back-edge is the cheapest part to leave out and the most expensive to retrofit,
-so decide early where yours is.
+`validate` without `--live` uses scripted replies: it proves the wiring, including
+the back-edge (a wrong first draft, a BLOCK, a revision, a PASS), and calls no
+model. Add `--live` to use the real models on your OpenRouter key; that spends the
+key. `serve` starts the tester page on http://127.0.0.1:8000 (add `--live` for real
+answers). The kit's own smoke slice is `python scripts/smoke.py run --stub`.
 
-This kit demonstrates all four. [`docs/PRINCIPLES-BRIEF.md`](docs/PRINCIPLES-BRIEF.md)
-is the short version — the ideas, in a page or two, and the file to paste into a
-chat when you want a critic rather than an enthusiast.
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) is the long version: nine
-principles, tiered by build order, each anchored to the line of code it actually
-lives on.
-
-**Read the brief before you write anything.** It will save you the rewrite that
-hits teams on the second morning who start with prompts.
-
----
-
-## Who does what
-
-A team of four will not all do the same job, and the strongest teams split it
-three ways. This is a strong recommendation, not a rule - organise differently if
-you have a better idea, but decide deliberately rather than by drift.
-
-| | owns | reads |
-|---|---|---|
-| **Designer** | the problem and the spec - what it does, what makes an answer wrong, what it refuses | [`docs/DESIGNER.md`](docs/DESIGNER.md) |
-| **Builder** | the machinery - environment, the spine, `demo/flow.py`, unblocking everyone else | [`docs/BUILDER.md`](docs/BUILDER.md) |
-| **Verifier** | real people using it, the stress test, the design rationale | [`docs/VERIFIER.md`](docs/VERIFIER.md) |
-
-**Everyone starts in the same place.** Part one of
-[`docs/DESIGNER.md`](docs/DESIGNER.md) is a guided design session &mdash; about
-three hours, any frontier chat, no keys, nothing installed &mdash; and the whole
-team should be in it. It produces a spec for your own agent, which is near
-enough what a strong preliminary submission has to say. The roles start
-mattering on the first morning, not during the fortnight.
-
-The ideas the three guides assume are in
-[`docs/PRINCIPLES-BRIEF.md`](docs/PRINCIPLES-BRIEF.md) &mdash; short, and worth
-reading before any of them. [`docs/ON-THE-DAY.md`](docs/ON-THE-DAY.md) is the
-operational page: keys, money, deadlines, what the two error codes mean, and who
-to ask when something non-technical is in your way.
-
-**The Verifier role is not the consolation prize.** Roughly a third of what you are judged on is evidence that real people used
-your agent and that you changed it in response - and it is the part almost every
-team leaves until the last afternoon, by which point it is too late to do honestly.
-
----
+Only `OPENROUTER_API_KEY` is required. The `SLICE_*` lines choose the models and
+the budget fences. `ARIZE_*` turns on the notes slice's tracing, and the
+`NETRA_*` lines are only for the full product (below).
 
 ## Layout
 
+| Folder | What it is |
+|---|---|
+| [`slice/`](slice/) | The kit's spine, unchanged: records, append-only store, config, budget fences, the one LLM client, retrieval, human callback, runner |
+| [`demo/notes/`](demo/notes/) | Netra's slice on the spine: retrieve, draft, evidence ledger, gate (sends work back), Tutor check question, sessions, uploads, tester page, AX tracing |
+| [`demo/smoke/`](demo/smoke/) | The kit's smallest slice (draft and gate) |
+| [`web/`](web/) | The kit's expert callback form |
+| [`scripts/`](scripts/) | `doctor`, `bakeoff`, `smoke`, `sync_architecture` (kit) and `notes` (the Netra slice CLI) |
+| [`tests/`](tests/) | Kit and notes-slice suites at the top level; Netra's cross-cutting suites in subfolders |
+| [`docs/`](docs/) | Kit guides ([ARCHITECTURE](docs/ARCHITECTURE.md), [PRINCIPLES-BRIEF](docs/PRINCIPLES-BRIEF.md), [BUILDER](docs/BUILDER.md), [DESIGNER](docs/DESIGNER.md), [VERIFIER](docs/VERIFIER.md), [ON-THE-DAY](docs/ON-THE-DAY.md)), the [port checklist](docs/PORT-CHECKLIST.md), and Netra's architecture, team and audit docs |
+| [`corpus/`](corpus/) | The kit's sample corpus; the notes slice's own notes are in `demo/notes/corpus/` |
+| [`.devcontainer/`](.devcontainer/) | Codespace image: Python 3.13, kit and Netra dependencies, embedding model baked in |
+| [`api/`](api/) | Netra FastAPI API: Coordinator, Tutor, session, identity, content, multimedia, learning |
+| [`worker/`](worker/) | Netra durable background work |
+| [`client/`](client/) | Netra Windows C#/WPF desktop |
+| [`shared/contracts`](shared/contracts/) | Authoritative protocol schemas |
+| [`evaluation/`](evaluation/) | Netra evaluation harness, rubrics and golden cases |
+| [`infrastructure/`](infrastructure/) | Docker Compose, Dockerfiles, reverse proxy |
+
+One environment and one test run cover all of it. `pytest.ini` configures pytest
+for the whole repository, and `conftest.py` isolates each test from the `.env` the
+kit loads.
+
+## The full Netra product
+
+For parallel implementation, use the [five paste-ready teammate prompts](docs/team/prompts/README.md)
+in separate checkouts or worktrees from the same published baseline.
+
+Start with the [current product scope](docs/architecture/current-scope.md), then
+the [architecture overview](docs/architecture/overview.md) and
+[M1–M5 workstream guides](docs/team/ownership.md). Coding agents read
+[AGENTS.md](AGENTS.md) or [CLAUDE.md](CLAUDE.md); both point to the same authorities.
+
+| Area | Location |
+|---|---|
+| FastAPI API / Coordinator / Tutor | [api](api/) |
+| Durable background work | [worker](worker/) |
+| Windows C#/WPF desktop | [client](client/) |
+| Authoritative protocol schemas | [shared/contracts](shared/contracts/) |
+| Runtime and dependency policy | [runtime baseline](docs/architecture/runtime-baseline.md) |
+| Integration acceptance targets | [checklist](docs/team/integration-checklist.md) |
+| Current gaps and migration checks | [migration report](docs/audits/documentation-migration-report.md) |
+
+**Models.** `NETRA_OPENROUTER_API_KEY` (the Agent-a-thon key works) runs both agents
+through OpenRouter with the approved models: `google/gemini-3.8-flash` for the
+Coordinator and `openai/gpt-oss-120b` for the Tutor. `NETRA_GEMINI_API_KEY` then serves
+embeddings only. Without an OpenRouter key, the Coordinator uses Gemini and the Tutor
+uses Groq directly when their keys are set. The API needs PostgreSQL and reads only
+`NETRA_*` variables:
+
+```bash
+uvicorn --env-file .env --app-dir api/src --factory netra_api.main:create_app
 ```
-slice/      THE SPINE — read this, edit it, do not treat it as a black box
-  records.py    what a run is made of                   stdlib   88
-  store.py      durable append-only state               stdlib  246
-  config.py     the one place .env is read              stdlib   64
-  budget.py     the fences: attempts and tokens         stdlib   94
-  llm.py        the ONE place a model is ever called            277
-  retrieve.py   chunk / embed / search, in the same db          138
-  callback.py   suspend on a human, resume, time out             81
-  runner.py     the state machine                               101
-  __init__.py   what this package is, and what it is not  stdlib   16
 
-demo/       THE DOMAIN — rewrite this for your own problem
-web/        the form a human expert answers on
-scripts/    doctor · bakeoff · sync_architecture
-tests/      six files — the store, the fences, the callbacks, the runner,
-            a check that ARCHITECTURE.md still points at real code, and
-            one live-key integration test
-```
+This repository contains scaffolding, typed models and some implementation/tests.
+The full study journey is not established as working. Endpoint/dispatcher and agent
+loops remain incomplete; dependency locks and deployment wiring are missing.
+The [original Engineering Plan](docs/architecture/Netra_Final_Engineering_Plan.md)
+and [Phase 10 audit](docs/audits/phase-10-repair-report.md) are historical references.
 
-The split is the point. Swap `demo/` for your problem and keep the machinery.
-
----
-
-## Three things that will bite you
-
-**Your Codespaces quota is finite, and how much you get depends on your plan.**
-A free GitHub account includes 120 core-hours a month; the Student Developer Pack
-upgrades you to Pro, which includes more. On the 2-core machine this repo asks
-for, 120 core-hours is 60 hours of actual use. **Check your own** at
-[github.com/settings/billing](https://github.com/settings/billing) — the
-Codespaces tab shows what you have used against what is included, and it is the
-only figure that is definitely right for you.
-
-For scale, measured on this repo in September 2026: **a two-hour working session
-on the 2-core machine costs 4.1 core-hours** — roughly 3% of a free account's
-monthly allowance, at $0.18 an hour. Storage over the same period was 0.28
-GB-hours, which is nothing. That is about thirty sessions a month before the free
-tier runs out, so a team has room for the event several times over.
-
-Billing lags a day or so, so a session you have just finished will not show up
-straight away.
-
-What actually eats the allowance is not working, it is **walking away**. Closing
-the browser tab does not stop a codespace; it idles for 30 minutes first. Stop it
-from [github.com/codespaces](https://github.com/codespaces), and consider
-dropping the idle timeout to 5 minutes in your Codespaces settings. If you do get
-blocked, push your work to a branch and a teammate can open a fresh codespace on
-it.
-
-**Your API key has a hard cap.** It is enforced, and it refuses a request
-*before* running it if the worst case would exceed your balance — so an
-oversized `max_tokens` produces a 402 while you still have credit. Leave
-`SLICE_MAX_TOKENS` where it is unless you know why you are changing it.
-
-**Default to the cheap model.** `SLICE_MODEL` is Flash-class and will carry
-almost everything. `SLICE_ESCALATION_MODEL` costs roughly thirty times as much
-per token. Escalate for the one hard subproblem, deliberately — not by habit
-when something is not working and you are tired.
-
----
-
-## The bar you are actually being judged against
-
-Working code is necessary, not sufficient. You also owe: three fellow students
-who walked your flow with their feedback captured and one visible iteration; a
-recorded stress test where a classmate tried to break your agent, and the fix
-commit that answers it; a short design rationale saying what your agent does and
-where its limits are; and a repo someone else could pick up and continue.
-
-Budget for that. Teams that treat the second morning as a feature deadline rather than a
-feedback deadline consistently ship the least convincing demos.
+Available checks, **only with existing matching runtimes and dependencies**, are
+`python -m pytest -p no:cacheprovider` from the repository root and
+`dotnet test client/Netra.sln --no-restore` from the root. Run neither with an
+implicit dependency install/restore. The earlier documentation migration used
+documentation checks only; it did not rerun or certify application tests.

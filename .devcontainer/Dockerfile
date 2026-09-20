@@ -2,7 +2,8 @@
 #
 # Everything slow or network-dependent happens HERE, at image build time, so
 # that nothing slow or network-dependent happens at 2am on venue wifi.
-FROM mcr.microsoft.com/devcontainers/python:3.12-bookworm
+# Python 3.13: Netra's API and worker require it (.python-version, pyproject.toml).
+FROM mcr.microsoft.com/devcontainers/python:3.13-bookworm
 
 # --- cloudflared: how a team shows a judge a live URL, with no account -------
 ARG TARGETARCH=amd64
@@ -11,7 +12,7 @@ RUN curl -fsSL -o /usr/local/bin/cloudflared \
  && chmod +x /usr/local/bin/cloudflared \
  && cloudflared --version
 
-# --- python deps ------------------------------------------------------------
+# --- python deps: the kit and Netra share one environment ------------------
 COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 

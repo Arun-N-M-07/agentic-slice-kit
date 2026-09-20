@@ -1,5 +1,5 @@
 {
-  "name": "Agentic Slice Kit",
+  "name": "Netra on the Agentic Slice Kit",
   "build": { "dockerfile": "Dockerfile", "context": ".." },
 
   // 2 cores keeps a student inside the free 120 core-hour monthly quota. The
@@ -10,7 +10,7 @@
 
   "forwardPorts": [8000],
   "portsAttributes": {
-    "8000": { "label": "expert callback form", "onAutoForward": "notify" }
+    "8000": { "label": "expert form / notes tester page", "onAutoForward": "notify" }
   },
 
   "containerEnv": { "FASTEMBED_CACHE_PATH": "/opt/fastembed" },
@@ -25,7 +25,7 @@
       ],
       "settings": {
         "python.testing.pytestEnabled": true,
-        "python.testing.pytestArgs": ["tests"],
+        "python.testing.pytestArgs": [],
         "editor.formatOnSave": true
       }
     }

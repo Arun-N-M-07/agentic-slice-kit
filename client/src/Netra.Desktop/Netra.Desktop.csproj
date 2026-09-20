@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Runtime pinned per docs/architecture/runtime-baseline.md:
+    net10.0-windows, .NET SDK 10.0.401 (see ../../global.json).
+    WPF is the only desktop UI framework for Netra; do not add a second one.
+
+    No LangVersion property on purpose. The target framework and the
+    pinned SDK determine the language version, so there is one source of
+    truth. An explicit "latest" would float with whatever SDK happens to
+    be installed, which the baseline forbids ("Never use 'latest' ... as
+    version recommendations"), and it is also how preview features get
+    enabled by accident.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>Netra.Desktop</RootNamespace>
+    <AssemblyName>Netra.Desktop</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Approved free SDK; exact stable version reviewed for F1 (20 Sep 2026).
+         The Windows Evergreen runtime remains a separate deployment dependency. -->
+    <PackageReference Include="Microsoft.Web.WebView2" Version="[1.0.4191.47]" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The lecture player page (F8), served to WebView2 from the app folder. -->
+    <Content Include="Video\Player\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Device and wire seams (e.g. the WinMM driver interface) stay internal. -->
+    <InternalsVisibleTo Include="Netra.Desktop.Tests" />
+  </ItemGroup>
+
+</Project>

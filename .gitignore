@@ -1,12 +1,40 @@
+# Python
 __pycache__/
 *.py[cod]
 .venv/
 venv/
+.pytest_cache/
+.pytest-tmp*/
+*.egg-info/
 .env
+evaluation/.venv-prometheus/
+evaluation/results/*
+!evaluation/results/.gitkeep
+infrastructure/terraform/.terraform/
+infrastructure/terraform/*.tfstate
+infrastructure/terraform/*.tfstate.*
+infrastructure/terraform/*.tfvars
+infrastructure/terraform/*.tfplan
+infrastructure/terraform/backend.hcl
+infrastructure/terraform/state-bucket/.terraform/
+infrastructure/terraform/state-bucket/*.tfstate
+infrastructure/terraform/state-bucket/*.tfstate.*
+infrastructure/terraform/state-bucket/*.tfvars
+
+# .NET
+bin/
+obj/
+
+# Third-party source documents and their parsed text stay local-only; the
+# public repository must not redistribute them. Golden cases reference them
+# by source/version ID and SHA-256 (see evaluation/cases/README.md).
+evaluation/fixtures/documents/
+evaluation/fixtures/_netra/
+
+# agentic-slice-kit run state: run databases and local reports stay local
 *.db
 *.db-wal
 *.db-shm
 out/
-.pytest_cache/
-.DS_Store
 bakeoff_raw.txt
+.DS_Store

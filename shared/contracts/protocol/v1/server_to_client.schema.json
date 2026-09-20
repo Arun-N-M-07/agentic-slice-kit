@@ -1,0 +1,328 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://netra.local/contracts/protocol/v1/server_to_client.schema.json",
+  "title": "Netra Server To Client Message",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_version",
+    "message_id",
+    "session_id",
+    "request_id",
+    "sequence",
+    "type",
+    "payload"
+  ],
+  "properties": {
+    "protocol_version": { "const": "1.0" },
+    "message_id": { "type": "string", "format": "uuid" },
+    "session_id": { "type": "string", "format": "uuid" },
+    "request_id": { "type": "string", "format": "uuid" },
+    "sequence": { "type": "integer", "minimum": 0 },
+    "type": {
+      "enum": [
+        "session.snapshot",
+        "response.segment",
+        "quiz.question",
+        "error",
+        "asr.transcript"
+      ]
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+
+  "$comment": "session.snapshot, quiz.question and error were approved 2026-09-12 alongside the canonical interaction_mode vocabulary and the last-stable-result-set design (see docs/architecture/message-flow.md and data-ownership.md). All four server message types are now typed. asr.transcript was added 20 September 2026 with decision D-MIC.",
+
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": { "const": "response.segment" }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": { "$ref": "#/$defs/ResponseSegment" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": { "const": "session.snapshot" }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": { "$ref": "#/$defs/SessionSnapshot" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": { "const": "quiz.question" }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": { "$ref": "#/$defs/QuizQuestion" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": { "const": "error" }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": { "$ref": "error.schema.json" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": { "const": "asr.transcript" }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": { "$ref": "#/$defs/AsrTranscript" }
+        }
+      }
+    }
+  ],
+
+  "$defs": {
+    "SessionSnapshot": {
+      "$comment": "Reference-only by design: it is not a dump of session history. A pending question is a reference here (question_id/version/hints_used, matching agent/v1/coordinator_to_tutor.schema.json's PendingQuestion shape) because the server also re-sends a fresh quiz.question message with the full persisted question immediately after this snapshot whenever pending_question is non-null — see docs/architecture/message-flow.md flow 11. last_result_set is likewise a reference into the session's stored result set, never the result list itself. connection_state, per-generation playback detail and any return-navigation position are deliberately absent: see message-flow.md's session.snapshot field table for why each was excluded.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "session_version",
+        "interaction_mode",
+        "active_source_version_id",
+        "current_block_id",
+        "current_sentence_id",
+        "last_acknowledged_sentence_id",
+        "active_lesson",
+        "pending_question",
+        "last_result_set"
+      ],
+      "properties": {
+        "session_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "interaction_mode": {
+          "enum": ["idle", "reading", "tutor_lesson", "quiz"]
+        },
+        "active_source_version_id": {
+          "type": ["string", "null"],
+          "format": "uuid",
+          "$comment": "Null for a session that has never opened a source yet (interaction_mode idle). Present and non-null from the point a source is opened onward. When present it is the canonical lowercase hyphenated UUID of the pinned immutable source version (the same identity as agent/v1 EvidenceRef.source_version_id); clients treat it as an opaque reference. Clarified 2026-09-18 (INT-03)."
+        },
+        "current_block_id": {
+          "type": ["string", "null"]
+        },
+        "current_sentence_id": {
+          "type": ["string", "null"]
+        },
+        "last_acknowledged_sentence_id": {
+          "type": ["string", "null"]
+        },
+        "active_lesson": {
+          "oneOf": [
+            { "$ref": "#/$defs/ActiveLessonRef" },
+            { "type": "null" }
+          ]
+        },
+        "pending_question": {
+          "oneOf": [
+            { "$ref": "#/$defs/PendingQuestionRef" },
+            { "type": "null" }
+          ]
+        },
+        "last_result_set": {
+          "oneOf": [
+            { "$ref": "#/$defs/ResultSetRef" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+
+    "ActiveLessonRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lesson_id"],
+      "properties": {
+        "lesson_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+
+    "PendingQuestionRef": {
+      "$comment": "Field-for-field identical to agent/v1/coordinator_to_tutor.schema.json's PendingQuestion $def by design, not by accident. Duplicated rather than cross-referenced because the protocol and agent contract families are versioned independently.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question_id", "question_version", "hints_used"],
+      "properties": {
+        "question_id": {
+          "type": "string"
+        },
+        "question_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "hints_used": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+
+    "ResultSetRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["result_set_id", "created_at"],
+      "properties": {
+        "result_set_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+
+    "QuizQuestion": {
+      "$comment": "Wire form of StudentFacingQuestion (api/src/netra_api/learning/quiz/models.py). Structurally cannot carry answer_key, rubric or grading notes: those exist only on the server-side-only ApprovedQuestion type. A spoken/typed answer to this question is an ordinary turn.submit, not a separate message type; routing to grading is driven by pending_question being non-null.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question_id", "question_version", "kind", "prompt", "options"],
+      "properties": {
+        "question_id": {
+          "type": "string"
+        },
+        "question_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "kind": {
+          "enum": ["multiple_choice", "true_false", "short_answer", "free_response"]
+        },
+        "prompt": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "options": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/QuestionOption" }
+        },
+        "hints_used": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+
+    "QuestionOption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["option_id", "text"],
+      "properties": {
+        "option_id": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+
+    "ResponseSegment": {
+      "$comment": "Transcribed from the committed example at shared/contracts/examples/server/response_segment.json and the C# record that already parses it. No field is introduced here that did not already exist in both. kind reuses the segment vocabulary from agent/v1/tutor_to_coordinator.schema.json rather than defining a second one.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "generation_id",
+        "segment_id",
+        "sentence_id",
+        "text",
+        "final"
+      ],
+      "properties": {
+        "generation_id": {
+          "type": "string"
+        },
+        "segment_id": {
+          "type": "string"
+        },
+        "sentence_id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "explanation",
+            "hint",
+            "question",
+            "correction"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 8000
+        },
+        "final": {
+          "type": "boolean"
+        },
+        "evidence_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+
+    "AsrTranscript": {
+      "$comment": "Decision D-MIC (20 September 2026): recognition result for the capture started by the asr.start whose request_id the envelope repeats. Interim results (is_final false) are for live captioning only and never become turns or commands. A capture yields at most one final result, sent after its end_of_utterance frame; interim results for that capture share the final's transcript_id, and a redelivered final keeps it. A final with empty text means nothing was recognised: the client says so and submits nothing. Recognition failure is an error message with the same request_id.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capture_id",
+        "transcript_id",
+        "text",
+        "is_final"
+      ],
+      "properties": {
+        "capture_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "transcript_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 8000
+        },
+        "is_final": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
